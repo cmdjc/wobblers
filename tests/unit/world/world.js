@@ -4,6 +4,8 @@ import { createShapes } from "../../../src/shapes/shapes.js";
 import { createColliders } from "../../../src/shapes/colliders.js";
 import { createEyes } from "../../../src/world/eyes.js";
 import { createObjects } from "../../../src/world/objects.js";
+import { defaultAbeh } from "../../../src/limbs/arms.js";
+import { defaultBeh, footR, hipXZ } from "../../../src/limbs/legs.js";
 import { makeContext } from "../../helpers/stubCanvas.js";
 
 export function stubDocument() {
@@ -28,10 +30,7 @@ export function makeWorld() {
   ctx.boing = () => {};
   ctx.blocks = [];
   ctx.reb = { genius: null };
-  ctx.footR = () => 0.1;
-  ctx.hipXZ = (o, i) => [i * 0.2, 0];
-  ctx.defaultBeh = () => ({});
-  ctx.defaultAbeh = () => ({});
+  Object.assign(ctx, { footR, hipXZ, defaultBeh, defaultAbeh });
   for (const name of ["closeEditor", "clearLegs", "clearArms", "dropCarry", "clearOutfit", "releaseCarry"]) ctx[name] = () => {};
   createShapes(ctx);
   createColliders(ctx);
