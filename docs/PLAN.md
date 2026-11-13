@@ -123,9 +123,9 @@ A Sonnet implementer subagent does each task, TDD, on branch `rebuild`, one comm
 | 16a | `tower.js` | 2903-3266 | done (6ca99ad) |
 | 16b | `genius.js`: genius, outfit, 3D rig; drop the unused outfit textures | 3266-3540 | done (bb394bf) |
 | 16c | `cannon.js` | 3540-3825 | done (5c980f0) |
-| 17 | `awakening.js`, `villain.js` | 3825-4394 | |
-| 18 | `game.js` cleanup: only setup and the frame loop (handoff 4.2 order), rename shadowed names, remove leftovers | 4723-4822 | |
-| 19 | Pages workflow, LICENSE, README; final independent review, fixes, merge to `main`, push, enable Pages | n/a | |
+| 17 | `awakening.js`, `villain.js` | 3825-4394 | done (cebd50a) |
+| 18 | `game.js` cleanup: only setup and the frame loop (handoff 4.2 order), rename shadowed names, remove leftovers | 4723-4822 | done (146d794) |
+| 19 | Pages workflow, LICENSE, README; final independent review, fixes, merge to `main`, push, enable Pages | n/a | done (7dfa4a5, d15c324) |
 
 Each extraction task (5-18): write the unit tests for the new module first and see them fail, move the code, see unit, parity, and invariant tests pass, run `npm run check` and `npm run e2e`, commit.
 
