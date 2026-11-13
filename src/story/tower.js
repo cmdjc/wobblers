@@ -274,7 +274,7 @@ export function createTower(ctx) {
       say('Level ' + reb.bl + ' of ' + reb.L, 900);
     }
   }
-  function rebelFrame(dt, t) {
+  function rebelFrame(dt) {
     updatePopTexts(dt);
     if (reb.genius && objs.indexOf(reb.genius) < 0) reb.genius = null;
     if (reb.state === 'off') {
@@ -298,7 +298,7 @@ export function createTower(ctx) {
     switch (reb.state) {
       case 'build':
         refreshRoles('builder');
-        if (reb.kind === 'cannon') { ctx.cannonBuildFrame(dt, t); break; }
+        if (reb.kind === 'cannon') { ctx.cannonBuildFrame(dt); break; }
         reb.stallT += dt;
         if (reb.stallT > 30 && reb.placed < reb.need) { // someone got wedged: the tower assembles itself rather than stalling forever
           buildPiece(reb.bl * PP + reb.pcs);
@@ -325,7 +325,7 @@ export function createTower(ctx) {
         break;
       case 'battle':
         refreshRoles(reb.kind === 'cannon' ? 'loader' : 'climber');
-        if (reb.kind === 'cannon') ctx.cannonFrame(dt, t);
+        if (reb.kind === 'cannon') ctx.cannonFrame(dt);
         reb.chargeCd = Math.max(0, reb.chargeCd - dt);
         hpFill.style.width = Math.max(0, ey.hp * 100) + '%';
         chargeBtn.disabled = reb.chargeCd > 0;
