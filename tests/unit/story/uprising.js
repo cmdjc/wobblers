@@ -22,7 +22,7 @@ function giveLegs(game, o) {
   game.step(10);
 }
 
-export function reachUprising(game) {
+export function prepareUprising(game) {
   game.step(60);
   const used = new Set();
   for (let i = 0; i < 4; i++) {
@@ -32,6 +32,10 @@ export function reachUprising(game) {
     giveLegs(game, o);
   }
   click(game, "#eyebtn");
+}
+
+export function reachUprising(game) {
+  prepareUprising(game);
   until(game, "the wobblers rebel", () => game.debug.reb.state !== "off", 120);
 }
 
