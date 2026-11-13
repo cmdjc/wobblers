@@ -103,8 +103,8 @@ A Sonnet implementer subagent does each task, TDD, on branch `rebuild`, one comm
 |---|---|---|---|
 | 0 | Planner: `git init`, identity, commit the original files, then this plan; branch `rebuild` | n/a | done |
 | 1 | Scaffold: move files to `legacy/`, package.json (pinned like the sister), Vite, ESLint, `.gitignore`, `index.html`, `style.css`, `main.js`, and `game.js` holding the IIFE body nearly verbatim inside `createGame({ renderer, env })` | 1-165, all | done (9cdb75b) |
-| 2a | Harness env and legacy loader; legacy-vs-legacy same-seed test | n/a | |
-| 2b | Trace, boot parity of the new build, sanity tests that must fail | n/a | |
+| 2a | Harness env and legacy loader; legacy-vs-legacy same-seed test | n/a | done (f0ed583) |
+| 2b | Trace, boot parity of the new build, sanity tests that must fail | n/a | done (abdd288) |
 | 3a | Scenarios 1-4 (incl. the fake-audio run) and their invariants | n/a | |
 | 3b | Scenarios 5-8 (seed search for the genius), the rest of the 18 invariants | n/a | |
 | 4 | E2E tools and tests (boot, touch, visual parity) | n/a | |
