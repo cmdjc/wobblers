@@ -1,20 +1,49 @@
 import * as THREE from "three";
+import { createContext } from "./context.js";
 
 export function createGame({ renderer, env }) {
   const { window, document, performance, navigator, setTimeout, clearTimeout, requestAnimationFrame } = env;
+  const ctx = createContext();
+  Object.assign(ctx, {
+    resize, makeGear, roundedBox, getFracGeo, makeEyes, drawEyes, addObj, removeObj, applySize, updateWO, fillShape, buildCollider, ensureAudio,
+    boing, impact, gravityAt, wallHit, walls, collide, jelly, spin, step, addRing, blast, setRay, pickObj, release, say, hideHint, maxSizeFor,
+    applyTool, fieldValue, showField, syncEditor, applyField, fitRoom, setShape, updatePinTarget, openEditor, closeEditor, createFluid,
+    applyFluidLook, fluidInit, buildObstacles, wetness, coupleObjects, gearFluid, fluidFrame, renderFluidField, stirFluid, showFl, refreshSheet,
+    openFluidPanel, closeFluidPanel, setAmount, chainPts, dirichlet, chainBeta, jointLimit, solveChain, defaultBeh, footR, hipXZ, clearLegs,
+    buildLegs, setLegs, startFall, legBrain, orientLegged, stick, updateLegs, updateSparkPx, spark, updateSparks, makeRibbon, setRibbon, tone, chime,
+    zapSound, flash, featherTexture, haloTexture, buildEye, summonEye, releaseVictim, dismissEye, dirFromEye, startStone, endStone, meltAway,
+    popAway, applyPunish, giftShapes, startHug, applyPrize, gearJam, gearOverclock, divineStatus, pickVictim, eyeFinish, eyeFrame, countLegged,
+    countRebels, dropCarry, refreshRoles, setHud, makePieceMesh, disposeMesh, planTower, buildPiece, dismantleTower, abortRebellion, startBuild,
+    startCelebration, defeatEye, beginBattle, chargeNow, lowestY, updateLevel, hopTo, climbStep, rebelSteer, advanceTower, collideBlocks, rebelFrame,
+    boomSound, textTex, popText, updatePopTexts, mkTex, outfitTextures, stickBetween, buildRig, makeOutfit, clearOutfit, releaseCarry, updateOutfit,
+    sketchPath, startIdea, sketchTick, lightbulb, mutter, geniusAI, spawnGenius, retireGenius, cylX, planCannon, buildCannonPart, cannonPop,
+    startCannon, cannonBuilder, cannonBuildFrame, ballistic, aimAt, aimAngle, ammoCandidates, endAmmo, releaseAmmo, disposeCannon, loaderAI,
+    spawnIron, fireCannon, cannonFrame, pointerActive, bubbleTex, bubble, updateBubbles, speaker, lullaby, startAwakening, beginNotice, stealButton,
+    awPillHit, beginWary, awAggress, awSlip, awakeSteer, trackFinger, hurtBoss, startBoss, bossFrame, bossDefeat, peaceEnding, abortAwakening,
+    awakeFrame, hitThem, awBlastHurt, awSmash, planCell, dismantleCell, startVillain, rattle, rattleMove, commandZap, villainTap, escapeCell,
+    villainFrame, defaultAbeh, clearArms, buildArms, setArms, holdPos, armFor, armReach, armSetMode, armCancel, armCalm, armItemOk, armPickItem,
+    holdItem, startPunch, punchLand, endHeld, armHug, armTick, armIdle, armSteer, armHandTarget, updateArms, frame,
+  });
+  ctx.env = env;
+  ctx.renderer = renderer;
   const canvas = document.getElementById('c');
+  ctx.canvas = canvas;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
+  ctx.scene = scene;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+  ctx.camera = camera;
   const CAM_Z = 10;
   camera.position.set(0, 0, CAM_Z);
   const TAN = Math.tan(THREE.MathUtils.degToRad(25));
   const timeU = { value: 0 };
+  ctx.timeU = timeU;
 
   /* ---------- scratch ---------- */
   const tmpG = new THREE.Vector3(), tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(),
         tmpA = new THREE.Vector3(), tmpP = new THREE.Vector3(), qInv = new THREE.Quaternion(),
         dq = new THREE.Quaternion();
+  ctx.tmpG = tmpG; ctx.tmpV = tmpV; ctx.tmpV2 = tmpV2; ctx.qInv = qInv;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   /* ---------- background: slow contour swirl ---------- */
@@ -49,32 +78,35 @@ export function createGame({ renderer, env }) {
     new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
     new THREE.LineBasicMaterial({ color: 0xffd1f0, transparent: true, opacity: 0.35 })
   );
+  ctx.box = box;
   scene.add(box);
 
   /* ---------- drifting motes ---------- */
   const MOTES = 140;
   const moteArr = new Float32Array(MOTES * 3);
+  ctx.moteArr = moteArr;
   for (let i = 0; i < MOTES; i++) {
     moteArr[i*3] = (Math.random()-0.5)*8; moteArr[i*3+1] = (Math.random()-0.5)*16; moteArr[i*3+2] = (Math.random()-0.5)*4 - 1;
   }
   const moteGeo = new THREE.BufferGeometry();
+  ctx.moteGeo = moteGeo;
   moteGeo.setAttribute('position', new THREE.BufferAttribute(moteArr, 3));
   const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ color: 0xffe1a8, size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
+  ctx.motes = motes;
   scene.add(motes);
 
   /* ---------- room bounds from camera ---------- */
-  let W = 1, H = 1, hx = 2, hy = 4, hz = 1.8, yMin = -3, yMax = 4;
   function resize() {
-    W = window.innerWidth; H = window.innerHeight;
-    renderer.setSize(W, H, false);
-    camera.aspect = W / H; camera.updateProjectionMatrix();
-    const d = CAM_Z - hz;
-    hy = TAN * d * 0.98; hx = TAN * d * (W / H) * 0.98;
-    const wpp = 2 * hy / H;
+    ctx.W = window.innerWidth; ctx.H = window.innerHeight;
+    renderer.setSize(ctx.W, ctx.H, false);
+    camera.aspect = ctx.W / ctx.H; camera.updateProjectionMatrix();
+    const d = CAM_Z - ctx.hz;
+    ctx.hy = TAN * d * 0.98; ctx.hx = TAN * d * (ctx.W / ctx.H) * 0.98;
+    const wpp = 2 * ctx.hy / ctx.H;
     const barH = document.getElementById('bar').offsetHeight || 120;
-    yMax = hy; yMin = -hy + (barH + 6) * wpp;
-    box.scale.set(hx * 2, yMax - yMin, hz * 2);
-    box.position.set(0, (yMax + yMin) / 2, 0);
+    ctx.yMax = ctx.hy; ctx.yMin = -ctx.hy + (barH + 6) * wpp;
+    box.scale.set(ctx.hx * 2, ctx.yMax - ctx.yMin, ctx.hz * 2);
+    box.position.set(0, (ctx.yMax + ctx.yMin) / 2, 0);
   }
   window.addEventListener('resize', resize);
   window.addEventListener('load', resize);
@@ -276,7 +308,7 @@ export function createGame({ renderer, env }) {
 
   /* ---------- objects ---------- */
   const objs = [];
-  let uid = 0, nextShape = 0;
+  ctx.objs = objs;
   const MAX_OBJS = 16;
 
   function addObj(shapeIdx, x, y) {
@@ -301,7 +333,7 @@ export function createGame({ renderer, env }) {
     eyes.s.scale.set(size * 0.9, size * 0.45, 1);
     scene.add(eyes.s);
     const o = {
-      id: uid++, shape: shapeIdx, mesh, mat, eyes, size,
+      id: ctx.uid++, shape: shapeIdx, mesh, mat, eyes, size,
       r: sh.r * size, front: sh.front * size, mass: Math.pow(size, 3), pitch: sh.pitch / size,
       baseR: sh.r, baseFront: sh.front, shapePitch: sh.pitch, sizeT: size,
       pos: new THREE.Vector3(x, y, (Math.random() - 0.5) * 1.2),
@@ -334,7 +366,7 @@ export function createGame({ renderer, env }) {
     return o;
   }
   function removeObj(o) {
-    if (sel === o) closeEditor();
+    if (ctx.sel === o) closeEditor();
     clearLegs(o);
     clearArms(o);
     dropCarry(o);
@@ -455,17 +487,16 @@ export function createGame({ renderer, env }) {
   }
 
   /* ---------- audio ---------- */
-  let actx = null, soundOn = true, lastSnd = 0;
   function ensureAudio() {
-    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { actx = null; } }
-    if (actx && actx.state === 'suspended') actx.resume();
+    if (!ctx.actx) { try { ctx.actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { ctx.actx = null; } }
+    if (ctx.actx && ctx.actx.state === 'suspended') ctx.actx.resume();
   }
   function boing(base, vol) {
-    if (!actx || !soundOn) return;
-    const now = actx.currentTime;
-    if (now - lastSnd < 0.035) return;
-    lastSnd = now;
-    const o = actx.createOscillator(), g = actx.createGain(), lfo = actx.createOscillator(), lg = actx.createGain();
+    if (!ctx.actx || !ctx.soundOn) return;
+    const now = ctx.actx.currentTime;
+    if (now - ctx.lastSnd < 0.035) return;
+    ctx.lastSnd = now;
+    const o = ctx.actx.createOscillator(), g = ctx.actx.createGain(), lfo = ctx.actx.createOscillator(), lg = ctx.actx.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(base * 1.5, now);
     o.frequency.exponentialRampToValueAtTime(base * 0.55, now + 0.35);
@@ -474,7 +505,7 @@ export function createGame({ renderer, env }) {
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(Math.max(0.002, Math.min(vol, 0.12)), now + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-    o.connect(g); g.connect(actx.destination);
+    o.connect(g); g.connect(ctx.actx.destination);
     o.start(now); lfo.start(now); o.stop(now + 0.4); lfo.stop(now + 0.4);
   }
 
@@ -494,10 +525,9 @@ export function createGame({ renderer, env }) {
   }
 
   /* ---------- physics ---------- */
-  let gMode = 0;
   const G = 15;
   function gravityAt(o, t) {
-    switch (gMode) {
+    switch (ctx.gMode) {
       case 0: tmpG.set(0, -G, 0); break;
       case 1: tmpG.set(0, G * 0.8, 0); break;
       case 2: tmpG.set(Math.sin(t * 0.6 + o.id) * 1.4, Math.cos(t * 0.5 + o.id * 2) * 1.4, 0); break;
@@ -536,8 +566,8 @@ export function createGame({ renderer, env }) {
   function walls(o) {
     const p = o.pos, n = o.cn, wo = o.wo, rad = o.cRad;
     for (let a = 0; a < 3; a++) {
-      const U = a === 0 ? hx : (a === 1 ? yMax : hz);
-      const Lw = a === 0 ? -hx : (a === 1 ? yMin : -hz);
+      const U = a === 0 ? ctx.hx : (a === 1 ? ctx.yMax : ctx.hz);
+      const Lw = a === 0 ? -ctx.hx : (a === 1 ? ctx.yMin : -ctx.hz);
       for (let s = 1; s >= -1; s -= 2) {
         let ext = -1e9;
         for (let k = 0; k < n; k++) { const v = s * wo[3 * k + a] + rad[k]; if (v > ext) ext = v; }
@@ -677,7 +707,7 @@ export function createGame({ renderer, env }) {
       } else {
         gravityAt(o, t);
         o.vel.addScaledVector(tmpG, dt * o.gScale);
-        o.vel.multiplyScalar(Math.exp(-DRAG_K[gMode] * dt / Math.sqrt(o.density)));
+        o.vel.multiplyScalar(Math.exp(-DRAG_K[ctx.gMode] * dt / Math.sqrt(o.density)));
         o.vel.z -= o.pos.z * 3 * dt;
         if (o.legs > 0 && o.groundT > 0 && o.hopT <= 0) { // feet on the ground: walk toward the target speed (or skid if fallen)
           const vs = o.vel.dot(o.side);
@@ -694,6 +724,7 @@ export function createGame({ renderer, env }) {
 
   /* ---------- shockwave rings ---------- */
   const rings = [];
+  ctx.rings = rings;
   const ringGeo = new THREE.RingGeometry(0.9, 1, 48);
   function addRing(p, color, max) {
     const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: color || 0xffa6e8, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -725,20 +756,23 @@ export function createGame({ renderer, env }) {
 
   /* ---------- pointer input ---------- */
   const ray = new THREE.Raycaster();
+  ctx.ray = ray;
   const ndc = new THREE.Vector2();
   const sph = new THREE.Sphere(new THREE.Vector3(), 1);
   const pointers = new Map();
+  ctx.pointers = pointers;
   const look = { x: 0, y: 0, last: -99 };
-  let clockNow = 0;
+  ctx.look = look;
 
   function setRay(e) {
     const r = canvas.getBoundingClientRect();
     ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height * 2 - 1));
     ray.setFromCamera(ndc, camera);
-    look.x = ndc.x; look.y = ndc.y; look.last = clockNow;
-    if (ray.ray.intersectPlane(plane0, pointerW)) pointerT = clockNow;
+    look.x = ndc.x; look.y = ndc.y; look.last = ctx.clockNow;
+    if (ray.ray.intersectPlane(plane0, pointerW)) ctx.pointerT = ctx.clockNow;
   }
   const pickHit = new THREE.Vector3();
+  ctx.pickHit = pickHit;
   function pickObj() {
     let best = null, bd = 1e9;
     for (const o of objs) {
@@ -815,7 +849,7 @@ export function createGame({ renderer, env }) {
     const o = rec.o;
     if (o) {
       o.dragged = false; o.drag = null;
-      if (quick && tool !== 'play') {
+      if (quick && ctx.tool !== 'play') {
         applyTool(o);
       } else if (quick) {
         tmpV.copy(rec.off); tmpV.z = 0;
@@ -836,7 +870,7 @@ export function createGame({ renderer, env }) {
         o.ang.z += (Math.random() - 0.5) * sp * 0.15;
         if (sp > 6) boing(200 * o.pitch, 0.05);
       }
-    } else if (quick && tool === 'play') {
+    } else if (quick && ctx.tool === 'play') {
       const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
       const hit = new THREE.Vector3();
       if (ray.ray.intersectPlane(plane, hit)) { blast(hit); if (aw.state === 'wary') awAggress(0.06); }
@@ -848,23 +882,24 @@ export function createGame({ renderer, env }) {
 
   /* ---------- UI ---------- */
   const sayEl = document.getElementById('say');
-  let sayTimer = 0, hintDone = false;
+  ctx.sayEl = sayEl;
   function say(text, ms) {
     sayEl.textContent = text; sayEl.classList.add('on');
-    clearTimeout(sayTimer);
-    sayTimer = setTimeout(() => sayEl.classList.remove('on'), ms || 1400);
+    clearTimeout(ctx.sayTimer);
+    ctx.sayTimer = setTimeout(() => sayEl.classList.remove('on'), ms || 1400);
   }
   function hideHint() {
-    if (hintDone) return;
-    hintDone = true; clearTimeout(sayTimer); sayEl.classList.remove('on');
+    if (ctx.hintDone) return;
+    ctx.hintDone = true; clearTimeout(ctx.sayTimer); sayEl.classList.remove('on');
   }
   const GN = ['down', 'up', 'drifting', 'pulled to the middle', 'spinning'];
   const gravBtn = document.getElementById('grav');
+  ctx.gravBtn = gravBtn;
   gravBtn.addEventListener('click', () => {
     ensureAudio(); hideHint();
-    gMode = (gMode + 1) % GN.length;
-    gravBtn.textContent = 'Gravity: ' + ['down', 'up', 'drift', 'center', 'spin'][gMode];
-    say('Gravity is ' + GN[gMode], 1300);
+    ctx.gMode = (ctx.gMode + 1) % GN.length;
+    gravBtn.textContent = 'Gravity: ' + ['down', 'up', 'drift', 'center', 'spin'][ctx.gMode];
+    say('Gravity is ' + GN[ctx.gMode], 1300);
     for (const o of objs) { o.vel.x += (Math.random() - 0.5) * 2; impact(o, tmpV.set(0, 1, 0), 4); }
   });
   document.getElementById('add').addEventListener('click', () => {
@@ -873,7 +908,7 @@ export function createGame({ renderer, env }) {
       const old = objs.find(o => !o.dragged && !o.dying);
       if (old) removeObj(old);
     }
-    const o = addObj(nextShape++ % SHAPES.length, (Math.random() - 0.5) * hx, yMax - 1);
+    const o = addObj(ctx.nextShape++ % SHAPES.length, (Math.random() - 0.5) * ctx.hx, ctx.yMax - 1);
     o.vel.set((Math.random() - 0.5) * 5, -2, 0);
     o.moodT = 0.9;
     boing(330 * o.pitch, 0.08);
@@ -881,9 +916,9 @@ export function createGame({ renderer, env }) {
   const sndBtn = document.getElementById('snd');
   sndBtn.addEventListener('click', () => {
     ensureAudio();
-    soundOn = !soundOn;
-    sndBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
-    if (soundOn) boing(300, 0.08);
+    ctx.soundOn = !ctx.soundOn;
+    sndBtn.textContent = ctx.soundOn ? 'Sound on' : 'Sound off';
+    if (ctx.soundOn) boing(300, 0.08);
   });
 
   document.getElementById('clr').addEventListener('click', () => {
@@ -902,7 +937,6 @@ export function createGame({ renderer, env }) {
   });
 
   /* ---------- tools ---------- */
-  let tool = 'play';
   const TOOL_HINT = {
     play: 'Poke and blast',
     grow: 'Tap a shape to grow it',
@@ -913,20 +947,20 @@ export function createGame({ renderer, env }) {
   const toolBtns = document.querySelectorAll('.tools button');
   toolBtns.forEach(b => b.addEventListener('click', () => {
     ensureAudio(); hideHint();
-    tool = b.dataset.tool;
+    ctx.tool = b.dataset.tool;
     toolBtns.forEach(x => x.classList.toggle('on', x === b));
-    say(TOOL_HINT[tool], 1500);
+    say(TOOL_HINT[ctx.tool], 1500);
   }));
   function maxSizeFor(o) {
     const rb = (o.rBody || o.r) / o.size;                       // body radius at size 1
-    const lateral = 0.95 * Math.min(hx, hz) / rb;
-    const vertical = 0.95 * (yMax - yMin) / (2 * rb + (o.legs > 0 ? o.legLen : 0)); // body plus legs must fit floor to ceiling
+    const lateral = 0.95 * Math.min(ctx.hx, ctx.hz) / rb;
+    const vertical = 0.95 * (ctx.yMax - ctx.yMin) / (2 * rb + (o.legs > 0 ? o.legLen : 0)); // body plus legs must fit floor to ceiling
     return Math.min(5.0, lateral, vertical);
   }
   function applyTool(o) {
     const dir = tmpV.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-    if (tool === 'grow' || tool === 'shrink') {
-      const grow = tool === 'grow';
+    if (ctx.tool === 'grow' || ctx.tool === 'shrink') {
+      const grow = ctx.tool === 'grow';
       const nt = grow ? Math.min(maxSizeFor(o), o.sizeT * 1.3) : Math.max(0.35, o.sizeT / 1.3);
       if (Math.abs(nt - o.sizeT) < 0.01) {
         say(grow ? 'Biggest it can get' : 'Smallest it can get', 900);
@@ -937,14 +971,14 @@ export function createGame({ renderer, env }) {
       o.qv += grow ? 16 : -16;
       o.rip = 0.1; o.moodT = 0.8;
       boing((grow ? 200 : 520) * o.shapePitch / nt, 0.09);
-    } else if (tool === 'wobble') {
+    } else if (ctx.tool === 'wobble') {
       o.wob = o.wob >= 4 ? -1 : Math.floor(o.wob) + 1;
       impact(o, dir, 10 + o.wob * 2);
       o.moodT = 0.9;
       say(o.wob < 0 ? 'Rigid' : (o.wob ? 'Wobble ' + o.wob + ' of 4' : 'Wobble off'), 900);
       boing(260 * o.pitch, 0.09);
-    } else if (tool === 'remove') {
-      if (sel === o) closeEditor();
+    } else if (ctx.tool === 'remove') {
+      if (ctx.sel === o) closeEditor();
       o.dying = true; o.dieT = 0; o.moodT = 1;
       addRing(o.pos, 0xffe14d, 1.8);
       boing(700, 0.1);
@@ -954,18 +988,21 @@ export function createGame({ renderer, env }) {
 
   /* ---------- editor ---------- */
   const ed = document.getElementById('editor');
+  ctx.ed = ed;
   const edShapes = document.getElementById('ed-shapes');
+  ctx.edShapes = edShapes;
   const edBody = document.getElementById('ed-body');
-  let sel = null;
   const selRing = new THREE.Mesh(
     new THREE.RingGeometry(0.93, 1, 64),
     new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.85, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })
   );
+  ctx.selRing = selRing;
   selRing.visible = false; selRing.renderOrder = 5;
   scene.add(selRing);
 
   const BEHS = [['wander', 'Wander'], ['follow', 'Follow finger'], ['flee', 'Flee finger'], ['chase', 'Chase others'], ['seek', 'Seek liquid'], ['avoid', 'Avoid liquid']];
   const behBtns = [], abehBtns = [];
+  ctx.behBtns = behBtns; ctx.abehBtns = abehBtns;
   const ABEHS = [['gesture', 'Gestures'], ['punch', 'Punch'], ['grab', 'Grab & throw'], ['hug', 'Hug & hold hands']];
   const FIELDS = [
     ['Form'],
@@ -999,6 +1036,7 @@ export function createGame({ renderer, env }) {
     ['@abeh']
   ];
   const refs = {};
+  ctx.refs = refs;
   FIELDS.forEach(fd => {
     if (fd[0] === '@abeh') {
       const h = document.createElement('div'); h.className = 'ed-sec'; h.textContent = 'Arm behavior';
@@ -1006,7 +1044,7 @@ export function createGame({ renderer, env }) {
       ABEHS.forEach(bh => {
         const b = document.createElement('button');
         b.textContent = bh[1]; b.dataset.k = bh[0];
-        b.addEventListener('click', () => { if (!sel) return; sel.abeh[bh[0]] = !sel.abeh[bh[0]]; b.classList.toggle('on', sel.abeh[bh[0]]); });
+        b.addEventListener('click', () => { if (!ctx.sel) return; ctx.sel.abeh[bh[0]] = !ctx.sel.abeh[bh[0]]; b.classList.toggle('on', ctx.sel.abeh[bh[0]]); });
         box.appendChild(b); abehBtns.push(b);
       });
       edBody.appendChild(h); edBody.appendChild(box);
@@ -1018,7 +1056,7 @@ export function createGame({ renderer, env }) {
       BEHS.forEach(bh => {
         const b = document.createElement('button');
         b.textContent = bh[1]; b.dataset.k = bh[0];
-        b.addEventListener('click', () => { if (!sel) return; sel.beh[bh[0]] = !sel.beh[bh[0]]; b.classList.toggle('on', sel.beh[bh[0]]); });
+        b.addEventListener('click', () => { if (!ctx.sel) return; ctx.sel.beh[bh[0]] = !ctx.sel.beh[bh[0]]; b.classList.toggle('on', ctx.sel.beh[bh[0]]); });
         box.appendChild(b); behBtns.push(b);
       });
       edBody.appendChild(h); edBody.appendChild(box);
@@ -1035,8 +1073,8 @@ export function createGame({ renderer, env }) {
     const inp = row.children[1];
     inp.min = fd[2]; inp.max = fd[3]; inp.step = fd[4];
     inp.addEventListener('input', () => {
-      if (!sel) return;
-      applyField(sel, key, parseFloat(inp.value));
+      if (!ctx.sel) return;
+      applyField(ctx.sel, key, parseFloat(inp.value));
       showField(key); showField('size');
     });
     edBody.appendChild(row);
@@ -1045,22 +1083,22 @@ export function createGame({ renderer, env }) {
   SHAPES.forEach((sh, i) => {
     const b = document.createElement('button');
     b.textContent = sh.name; b.dataset.i = i;
-    b.addEventListener('click', () => { if (sel) { setShape(sel, i); syncEditor(); } });
+    b.addEventListener('click', () => { if (ctx.sel) { setShape(ctx.sel, i); syncEditor(); } });
     edShapes.appendChild(b);
   });
 
   function fieldValue(o, key) { return key === 'size' ? o.sizeT : o[key]; }
   function showField(key) {
-    const v = fieldValue(sel, key);
+    const v = fieldValue(ctx.sel, key);
     refs[key].inp.value = v;
     refs[key].out.textContent = (key === 'level' || key === 'legs' || key === 'arms' || key === 'legSegs' || key === 'armSegs') ? String(v) : (key === 'wob' && v <= -0.99 ? 'Rigid' : Number(v).toFixed(2));
   }
   function syncEditor() {
-    if (!sel) return;
+    if (!ctx.sel) return;
     Object.keys(refs).forEach(showField);
-    behBtns.forEach(b => b.classList.toggle('on', !!sel.beh[b.dataset.k]));
-    abehBtns.forEach(b => b.classList.toggle('on', !!sel.abeh[b.dataset.k]));
-    edShapes.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.i === sel.shape));
+    behBtns.forEach(b => b.classList.toggle('on', !!ctx.sel.beh[b.dataset.k]));
+    abehBtns.forEach(b => b.classList.toggle('on', !!ctx.sel.abeh[b.dataset.k]));
+    edShapes.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.i === ctx.sel.shape));
   }
   function applyField(o, key, v) {
     if (key === 'size') { v = Math.min(v, maxSizeFor(o)); o.size = o.sizeT = v; }
@@ -1087,13 +1125,13 @@ export function createGame({ renderer, env }) {
     o.moodT = 0.8;
   }
   function updatePinTarget() {
-    if (!sel) return;
-    const yc = (H - ed.offsetHeight) / 2;
-    sel.pinTarget.set(0, (1 - 2 * yc / H) * TAN * CAM_Z, 0);
+    if (!ctx.sel) return;
+    const yc = (ctx.H - ed.offsetHeight) / 2;
+    ctx.sel.pinTarget.set(0, (1 - 2 * yc / ctx.H) * TAN * CAM_Z, 0);
   }
   function openEditor(o) {
-    if (sel && sel !== o) sel.pinned = false;
-    sel = o; o.pinned = true; o.moodT = 1;
+    if (ctx.sel && ctx.sel !== o) ctx.sel.pinned = false;
+    ctx.sel = o; o.pinned = true; o.moodT = 1;
     hideHint();
     closeFluidPanel();
     ed.hidden = false;
@@ -1105,8 +1143,8 @@ export function createGame({ renderer, env }) {
     if (navigator.vibrate) navigator.vibrate(20);
   }
   function closeEditor() {
-    if (!sel) return;
-    sel.pinned = false; sel = null;
+    if (!ctx.sel) return;
+    ctx.sel.pinned = false; ctx.sel = null;
     ed.hidden = true;
     refreshSheet();
   }
@@ -1114,7 +1152,7 @@ export function createGame({ renderer, env }) {
 
   document.getElementById('ed-done').addEventListener('click', closeEditor);
   document.getElementById('ed-del').addEventListener('click', () => {
-    const o = sel; if (!o) return;
+    const o = ctx.sel; if (!o) return;
     closeEditor();
     o.dying = true; o.dieT = 0; o.moodT = 1;
     addRing(o.pos, 0xffe14d, 1.8);
@@ -1122,7 +1160,7 @@ export function createGame({ renderer, env }) {
     if (navigator.vibrate) navigator.vibrate(15);
   });
   document.getElementById('ed-reset').addEventListener('click', () => {
-    const o = sel; if (!o) return;
+    const o = ctx.sel; if (!o) return;
     o.sx = o.sy = o.sz = 1; o.wob = 0; o.bounce = 0.75; o.density = 1; o.friction = 0.3; o.gScale = 1;
     o.level = 0; o.mesh.geometry = getFracGeo(o.shape, 0);
     o.legLen = 0.35; o.clumsy = 0.3; o.stamina = 0.5; o.beh = defaultBeh(); setLegs(o, 0);
@@ -1133,7 +1171,7 @@ export function createGame({ renderer, env }) {
     say('Reset', 800);
   });
   document.getElementById('ed-dup').addEventListener('click', () => {
-    const o = sel; if (!o) return;
+    const o = ctx.sel; if (!o) return;
     if (objs.length >= MAX_OBJS) {
       const old = objs.find(x => !x.dragged && !x.dying && !x.pinned);
       if (!old) { say('Too many shapes', 1000); return; }
@@ -1452,11 +1490,14 @@ function createFluid(N_MAX) {
   /* ---------- fluid: rendering (particles -> density field -> blobby surface) ---------- */
   const N_FL = 1000;
   const fluid = createFluid(N_FL);
+  ctx.fluid = fluid;
   const FL = { amount: 0, visc: 0.05, dens: 1, hue: 205, opacity: 0.78, glow: 0 };
-  let fluidOpen = false;
+  ctx.FL = FL;
 
   const blobPos = new Float32Array(N_FL * 3), blobSpd = new Float32Array(N_FL);
+  ctx.blobPos = blobPos; ctx.blobSpd = blobSpd;
   const blobGeo = new THREE.BufferGeometry();
+  ctx.blobGeo = blobGeo;
   blobGeo.setAttribute('position', new THREE.BufferAttribute(blobPos, 3));
   blobGeo.setAttribute('aSpeed', new THREE.BufferAttribute(blobSpd, 1));
   blobGeo.setDrawRange(0, 0);
@@ -1474,14 +1515,18 @@ function createFluid(N_MAX) {
       }`,
     blending: THREE.AdditiveBlending, transparent: true, depthTest: false, depthWrite: false
   });
+  ctx.blobMat = blobMat;
   const blobPts = new THREE.Points(blobGeo, blobMat);
+  ctx.blobPts = blobPts;
   blobPts.frustumCulled = false;
   const blobScene = new THREE.Scene();
+  ctx.blobScene = blobScene;
   blobScene.add(blobPts);
   const fieldRT = new THREE.WebGLRenderTarget(256, 256, {
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat,
     type: THREE.UnsignedByteType, depthBuffer: false, stencilBuffer: false
   });
+  ctx.fieldRT = fieldRT;
 
   const fluidMat = new THREE.ShaderMaterial({
     transparent: true, depthTest: false, depthWrite: false,
@@ -1521,7 +1566,9 @@ function createFluid(N_MAX) {
         gl_FragColor = vec4(col, alpha);
       }`
   });
+  ctx.fluidMat = fluidMat;
   const fluidQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fluidMat);
+  ctx.fluidQuad = fluidQuad;
   fluidQuad.frustumCulled = false; fluidQuad.renderOrder = 3; fluidQuad.visible = false;
   scene.add(fluidQuad);
 
@@ -1532,8 +1579,8 @@ function createFluid(N_MAX) {
     fluidMat.uniforms.uGlow.value = FL.glow;
   }
   function fluidInit() {
-    const k0 = CAM_Z / (CAM_Z - hz);
-    fluid.configure(hx * k0, yMin * k0, yMax * k0, N_FL);
+    const k0 = CAM_Z / (CAM_Z - ctx.hz);
+    fluid.configure(ctx.hx * k0, ctx.yMin * k0, ctx.yMax * k0, N_FL);
     const gl = renderer.getContext();
     const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
     const maxPt = (range && range[1]) ? range[1] : 64;
@@ -1592,7 +1639,9 @@ function createFluid(N_MAX) {
     fluid.setObstacles(obB, obS, obStart, m);
   }
   const smp = [0, 0, 0];
+  ctx.smp = smp;
   const flow = { x: 0, y: 0 };
+  ctx.flow = flow;
   // How much of the shape is under the surface? Probe points just outside its spheres and see if liquid is there.
   function wetness(o) {
     const s = fluid.s, rc = 1.6 * s, need = 0.55 * Math.PI * 1.6 * 1.6;
@@ -1655,25 +1704,24 @@ function createFluid(N_MAX) {
     o.ang.z += (w - o.ang.z) * (1 - Math.exp(-2.5 * f * dt));
     fluid.swirl(o.pos.x * kc, o.pos.y * kc, R * 1.45, o.ang.z * 0.3 * f);
   }
-  let fluidAcc = 0, fluidMs = 0;
   function fluidFrame(dt, t) {
-    fluid.F.mode = gMode; fluid.F.t = t; fluid.F.visc = FL.visc;
+    fluid.F.mode = ctx.gMode; fluid.F.t = t; fluid.F.visc = FL.visc;
     const target = Math.round(FL.amount * N_FL);
     if (fluid.n < target) fluid.spawn(Math.min(9, target - fluid.n), true);
     else if (fluid.n > target) fluid.drain(Math.min(14, fluid.n - target));
     fluidQuad.visible = fluid.n > 0;
     if (fluid.n === 0) { blobGeo.setDrawRange(0, 0); return; }
-    fluidAcc += dt;
+    ctx.fluidAcc += dt;
     let steps = 0;
     buildObstacles();
-    while (fluidAcc >= 1 / 60 && steps < 2) {
+    while (ctx.fluidAcc >= 1 / 60 && steps < 2) {
       const t0 = performance.now();
       fluid.step(1 / 60);
-      fluidMs += (performance.now() - t0 - fluidMs) * 0.1;
-      fluidAcc -= 1 / 60; steps++;
+      ctx.fluidMs += (performance.now() - t0 - ctx.fluidMs) * 0.1;
+      ctx.fluidAcc -= 1 / 60; steps++;
     }
-    if (fluidAcc > 1 / 30) fluidAcc = 0;
-    fluid.F.iters = fluidMs > 9 ? 3 : 4;
+    if (ctx.fluidAcc > 1 / 30) ctx.fluidAcc = 0;
+    fluid.F.iters = ctx.fluidMs > 9 ? 3 : 4;
     fluid.prepSample();
     coupleObjects(dt, t);
     const n = fluid.n, px = fluid.px, py = fluid.py, sp = fluid.spd;
@@ -1689,6 +1737,7 @@ function createFluid(N_MAX) {
     renderer.setRenderTarget(null);
   }
   const plane0 = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  ctx.plane0 = plane0;
   const stirHit = new THREE.Vector3();
   function stirFluid(rec) {
     if (!ray.ray.intersectPlane(plane0, stirHit)) return;
@@ -1705,8 +1754,10 @@ function createFluid(N_MAX) {
 
   /* ---------- fluid: panel ---------- */
   const flPanel = document.getElementById('fluidpanel');
+  ctx.flPanel = flPanel;
   const flBody = document.getElementById('fl-body');
   const flPresetBox = document.getElementById('fl-presets');
+  ctx.flPresetBox = flPresetBox;
   const PRESETS = [
     ['Water', { hue: 205, visc: 0.05, dens: 1.0, opacity: 0.78, glow: 0 }],
     ['Slime', { hue: 110, visc: 0.35, dens: 1.25, opacity: 0.9, glow: 0.1 }],
@@ -1718,6 +1769,7 @@ function createFluid(N_MAX) {
     ['hue', 'Color', 0, 360, 1], ['opacity', 'Murk', 0.3, 1, 0.01], ['glow', 'Glow', 0, 1, 0.01]
   ];
   const flRefs = {};
+  ctx.flRefs = flRefs;
   function showFl(key) {
     const v = FL[key];
     flRefs[key].inp.value = v;
@@ -1752,21 +1804,20 @@ function createFluid(N_MAX) {
   flPresetBox.firstChild.classList.add('on');
   FL_FIELDS.forEach(fd => showFl(fd[0]));
 
-  function refreshSheet() { document.body.classList.toggle('editing', !!sel || fluidOpen); }
+  function refreshSheet() { document.body.classList.toggle('editing', !!ctx.sel || ctx.fluidOpen); }
   function openFluidPanel() {
     closeEditor();
-    fluidOpen = true; flPanel.hidden = false; hideHint();
+    ctx.fluidOpen = true; flPanel.hidden = false; hideHint();
     refreshSheet();
   }
   function closeFluidPanel() {
-    if (!fluidOpen) return;
-    fluidOpen = false; flPanel.hidden = true;
+    if (!ctx.fluidOpen) return;
+    ctx.fluidOpen = false; flPanel.hidden = true;
     refreshSheet();
   }
-  let stirHinted = false;
   function setAmount(a) {
     FL.amount = a; showFl('amount');
-    if (a > 0 && !stirHinted) { stirHinted = true; say('Drag a finger through the liquid to stir it', 2600); }
+    if (a > 0 && !ctx.stirHinted) { ctx.stirHinted = true; say('Drag a finger through the liquid to stir it', 2600); }
   }
   document.getElementById('fluid').addEventListener('click', () => { ensureAudio(); openFluidPanel(); });
   document.getElementById('fl-done').addEventListener('click', closeFluidPanel);
@@ -1775,8 +1826,9 @@ function createFluid(N_MAX) {
 
   /* ---------- legs: walking, moods, stumbling ---------- */
   const pointerW = new THREE.Vector3();
-  let pointerT = -99;
+  ctx.pointerW = pointerW;
   const legCyl = new THREE.CylinderGeometry(1, 1, 1, 8, 1), legBall = new THREE.SphereGeometry(1, 14, 10);
+  ctx.legCyl = legCyl; ctx.legBall = legBall;
   const Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
   const lgH = new THREE.Vector3(), lgF = new THREE.Vector3(), lgK = new THREE.Vector3(), lgD = new THREE.Vector3(),
         lgB = new THREE.Vector3(), lgM = new THREE.Vector3(), lgZ = new THREE.Vector3();
@@ -1851,7 +1903,7 @@ function createFluid(N_MAX) {
     const was = o.legs;
     o.legs = n;
     if (n > 0 && !was) {
-      o.legCur = Math.min(o.legLen * o.size, Math.max(0.05 * o.size, (yMax - yMin) * 0.95 - 2 * (o.rBody || 0.5))); o.state = 'walk'; o.energy = 1;
+      o.legCur = Math.min(o.legLen * o.size, Math.max(0.05 * o.size, (ctx.yMax - ctx.yMin) * 0.95 - 2 * (o.rBody || 0.5))); o.state = 'walk'; o.energy = 1;
       o.tilt = o.tiltV = o.tiltT = 0; o.ang.set(0, 0, 0);
       if (!Object.values(o.beh).some(Boolean)) o.beh.wander = true;
     }
@@ -1926,7 +1978,7 @@ function createFluid(N_MAX) {
       o.wanderT = 1 + Math.random() * 3.2;
     }
     if (B.wander) d += o.wanderDir * 0.8;
-    if ((B.follow || B.flee) && ((clockNow - pointerT) < 5 || pointers.size > 0)) {
+    if ((B.follow || B.flee) && ((ctx.clockNow - ctx.pointerT) < 5 || pointers.size > 0)) {
       tmpV.copy(pointerW).sub(o.pos);
       const ps = tmpV.dot(o.side), dist = Math.hypot(tmpV.x, tmpV.y), sg = ps >= 0 ? 1 : -1;
       if (B.follow && dist > 1.5) d += sg * 1.3;
@@ -1960,7 +2012,7 @@ function createFluid(N_MAX) {
     }
     if (Math.abs(o.side.x) > 0.7) { // turn around at the walls
       const px = o.pos.x * Math.sign(o.side.x);
-      if (px > hx - o.r - 0.35) d = Math.min(d, -0.7); else if (px < -hx + o.r + 0.35) d = Math.max(d, 0.7);
+      if (px > ctx.hx - o.r - 0.35) d = Math.min(d, -0.7); else if (px < -ctx.hx + o.r + 0.35) d = Math.max(d, 0.7);
     }
     d = clamp(d, -1, 1);
     if (Math.abs(d) < 0.18) d = 0;
@@ -1995,7 +2047,7 @@ function createFluid(N_MAX) {
   function updateLegs(o, dt, t, sc) {
     const n = o.legs;
     if (!n) return;
-    const L = Math.min(o.legLen * o.size, Math.max(0.05 * o.size, (yMax - yMin) * 0.95 - 2 * (o.rBody || 0.5)));
+    const L = Math.min(o.legLen * o.size, Math.max(0.05 * o.size, (ctx.yMax - ctx.yMin) * 0.95 - 2 * (o.rBody || 0.5)));
     const lt = o.state === 'fall' ? 0.02 * o.size : (o.state === 'rest' ? 0.3 * L : L);
     o.legCur += (lt - o.legCur) * (1 - Math.exp(-8 * dt));
     if (Math.abs(o.legCur - o.legBuilt) > 0.02 * o.size) { o.legBuilt = o.legCur; buildCollider(o); }
@@ -2055,9 +2107,11 @@ function createFluid(N_MAX) {
   /* ---------- the Eye: a divine floating eye with feathered wings ---------- */
   const SP_N = 280;
   const spPos = new Float32Array(SP_N * 3), spCol = new Float32Array(SP_N * 3), spAlpha = new Float32Array(SP_N), spSize = new Float32Array(SP_N);
+  ctx.spPos = spPos; ctx.spCol = spCol; ctx.spAlpha = spAlpha; ctx.spSize = spSize;
   const spVel = new Float32Array(SP_N * 3), spAge = new Float32Array(SP_N).fill(99), spMax = new Float32Array(SP_N).fill(1), spGrav = new Float32Array(SP_N);
-  let spHead = 0;
+  ctx.spVel = spVel; ctx.spAge = spAge; ctx.spMax = spMax; ctx.spGrav = spGrav;
   const spGeo = new THREE.BufferGeometry();
+  ctx.spGeo = spGeo;
   spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
   spGeo.setAttribute('aColor', new THREE.BufferAttribute(spCol, 3));
   spGeo.setAttribute('aAlpha', new THREE.BufferAttribute(spAlpha, 1));
@@ -2078,15 +2132,17 @@ function createFluid(N_MAX) {
       }`,
     blending: THREE.AdditiveBlending, transparent: true, depthTest: false, depthWrite: false
   });
+  ctx.spMat = spMat;
   const spPts = new THREE.Points(spGeo, spMat);
   spPts.frustumCulled = false; spPts.renderOrder = 6; scene.add(spPts);
   function updateSparkPx() { spMat.uniforms.uPx.value = window.innerHeight * Math.min(window.devicePixelRatio || 1, 2) / (2 * TAN * CAM_Z); }
   window.addEventListener('resize', updateSparkPx); window.addEventListener('load', updateSparkPx); updateSparkPx();
   const spC = new THREE.Color();
+  ctx.spC = spC;
   function spark(x, y, z, n, o) {
     o = o || {};
     for (let k = 0; k < n; k++) {
-      const i = spHead; spHead = (spHead + 1) % SP_N;
+      const i = ctx.spHead; ctx.spHead = (ctx.spHead + 1) % SP_N;
       const a = Math.random() * 6.2832, sp = (o.speed || 1.5) * (0.4 + Math.random() * 0.8), sr = o.spread || 0;
       spPos[3 * i] = x + (Math.random() - 0.5) * sr; spPos[3 * i + 1] = y + (Math.random() - 0.5) * sr; spPos[3 * i + 2] = z;
       spVel[3 * i] = Math.cos(a) * sp; spVel[3 * i + 1] = Math.sin(a) * sp + (o.up || 0);
@@ -2134,25 +2190,26 @@ function createFluid(N_MAX) {
   }
   const ribOuter = makeRibbon(16, 0x8fb8ff), ribCore = makeRibbon(16, 0xffffff);
   const omenRing = new THREE.Mesh(new THREE.RingGeometry(0.95, 1, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  ctx.omenRing = omenRing;
   omenRing.visible = false; omenRing.renderOrder = 5; scene.add(omenRing);
 
   // sounds
   function tone(freq, dur, vol, type, slide) {
-    if (!actx || !soundOn) return;
-    const now = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    if (!ctx.actx || !ctx.soundOn) return;
+    const now = ctx.actx.currentTime, o = ctx.actx.createOscillator(), g = ctx.actx.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(freq, now);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * slide), now + dur);
     g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    o.connect(g); g.connect(actx.destination); o.start(now); o.stop(now + dur + 0.05);
+    o.connect(g); g.connect(ctx.actx.destination); o.start(now); o.stop(now + dur + 0.05);
   }
   function chime(notes, gap, vol) { notes.forEach((fq, i) => setTimeout(() => tone(fq, 1.0, vol, 'sine'), i * gap)); }
   function zapSound() {
-    if (!actx || !soundOn) return;
-    const dur = 0.35, len = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+    if (!ctx.actx || !ctx.soundOn) return;
+    const dur = 0.35, len = Math.floor(ctx.actx.sampleRate * dur), buf = ctx.actx.createBuffer(1, len, ctx.actx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
-    const src = actx.createBufferSource(), hp = actx.createBiquadFilter(), g = actx.createGain();
+    const src = ctx.actx.createBufferSource(), hp = ctx.actx.createBiquadFilter(), g = ctx.actx.createGain();
     src.buffer = buf; hp.type = 'highpass'; hp.frequency.value = 1200; g.gain.value = 0.12;
-    src.connect(hp); hp.connect(g); g.connect(actx.destination); src.start();
+    src.connect(hp); hp.connect(g); g.connect(ctx.actx.destination); src.start();
     tone(90, 0.5, 0.12, 'sawtooth', 0.4);
   }
   const flashEl = document.getElementById('flash');
@@ -2169,6 +2226,7 @@ function createFluid(N_MAX) {
     victim: null, verdict: '', kind: '', wings: [], scanT: 0, scanObj: null, glowK: 0, hint: 0,
     hp: 1, battleMode: false, allyMode: false, atkT: 0, aim: 0, zapT: 0, zapTarget: null, defT: 0, dead: false
   };
+  ctx.ey = ey;
   function featherTexture() {
     const c = document.createElement('canvas'); c.width = 64; c.height = 192;
     const g = c.getContext('2d');
@@ -2246,10 +2304,11 @@ function createFluid(N_MAX) {
   }
 
   const eyeBtn = document.getElementById('eyebtn');
+  ctx.eyeBtn = eyeBtn;
   function summonEye() {
     if (!ey.built) buildEye();
     ey.state = 'arrive'; ey.t = 0; ey.alpha = 0; ey.fold = 0; ey.dead = false; ey.hp = 1; ey.aim = 0; ey.zapT = 0;
-    ey.pos.set((Math.random() - 0.5) * hx * 0.6, yMax + 3.2, 1.1); ey.vel.set(0, 0, 0);
+    ey.pos.set((Math.random() - 0.5) * ctx.hx * 0.6, ctx.yMax + 3.2, 1.1); ey.vel.set(0, 0, 0);
     ey.g.position.copy(ey.pos); ey.g.visible = true;
     ey.left = 3 + ((Math.random() * 3) | 0); ey.nextT = 4.5; ey.victim = null;
     eyeBtn.textContent = 'Send eye away';
@@ -2297,12 +2356,12 @@ function createFluid(N_MAX) {
     const cnt = clamp(Math.round(55 * o.size * o.size * (1 + 0.3 * o.level)), 30, 170);
     fluid.spawnAt(o.pos.x * kc, o.pos.y * kc, cnt, o.r * kc * 0.7, o.vel.x * kc * 0.3, o.vel.y * kc * 0.3);
     FL.amount = Math.max(FL.amount, Math.min(1, (fluid.n + 4) / N_FL)); showFl('amount');
-    if (sel === o) closeEditor();
+    if (ctx.sel === o) closeEditor();
     o.dying = true; o.dieT = 0; o.moodT = 1;
     boing(160, 0.07);
   }
   function popAway(o) {
-    if (sel === o) closeEditor();
+    if (ctx.sel === o) closeEditor();
     o.dying = true; o.dieT = 0; o.moodT = 1;
     addRing(o.pos, 0xffe14d, 1.8);
     for (const c of [0xff6aa8, 0x6ad8ff, 0xffe14d, 0x9bff7a]) spark(o.pos.x, o.pos.y, o.pos.z + 0.3, 8, { color: c, speed: 3.5, life: 1.1, size: 0.13, spread: o.r * 0.6 });
@@ -2337,7 +2396,7 @@ function createFluid(N_MAX) {
         const old = objs.find(x => !x.dragged && !x.dying && !x.pinned && x !== o);
         if (old) removeObj(old); else break;
       }
-      const ob = addObj(Math.floor(Math.random() * AUTO_SHAPES), clamp(ey.pos.x + (k ? 0.7 : -0.7), -hx + 0.8, hx - 0.8), Math.min(yMax - 0.8, ey.pos.y - 0.9));
+      const ob = addObj(Math.floor(Math.random() * AUTO_SHAPES), clamp(ey.pos.x + (k ? 0.7 : -0.7), -ctx.hx + 0.8, ctx.hx - 0.8), Math.min(ctx.yMax - 0.8, ey.pos.y - 0.9));
       ob.pos.z = 0; ob.vel.set((Math.random() - 0.5) * 2, -1, 0); ob.goldT = 12; ob.moodT = 1.5;
       if (Math.random() < 0.35) setLegs(ob, 2 + ((Math.random() * 3) | 0));
       spark(ob.pos.x, ob.pos.y, 0.3, 14, { color: 0xffe28a, speed: 2.4, life: 0.9, size: 0.13, spread: ob.r });
@@ -2410,7 +2469,7 @@ function createFluid(N_MAX) {
   }
 
   function pickVictim() {
-    const c = objs.filter(o => !o.dying && !o.dragged && !o.pinned && o !== sel);
+    const c = objs.filter(o => !o.dying && !o.dragged && !o.pinned && o !== ctx.sel);
     return c.length ? c[(Math.random() * c.length) | 0] : null;
   }
   function eyeFinish() {
@@ -2429,7 +2488,7 @@ function createFluid(N_MAX) {
       releaseVictim(); ey.state = 'roam'; ey.nextT = 2;
     }
     // --- state machine ---
-    let tx = Math.sin(t * 0.37 + 1) * hx * 0.5, ty = yMax - 1.7 + Math.sin(t * 0.53) * 0.5, tz = 1.1;
+    let tx = Math.sin(t * 0.37 + 1) * ctx.hx * 0.5, ty = ctx.yMax - 1.7 + Math.sin(t * 0.53) * 0.5, tz = 1.1;
     let pupil = 0.18, slit = 0, glowT = 0.2, hint = 0;
     switch (ey.state) {
       case 'arrive':
@@ -2445,7 +2504,7 @@ function createFluid(N_MAX) {
             ey.kind = ey.verdict === 'punish' ? PUNISH[(Math.random() * PUNISH.length) | 0] : PRIZE[(Math.random() * PRIZE.length) | 0];
             if (reb.state === 'off' && reb.total >= REBEL_AT - 1 && countLegged() < 2 && Math.random() < 0.7) { // nudge: the uprising needs legs
               ey.verdict = 'prize'; ey.kind = 'legs';
-              const nl = objs.filter(o => !o.dying && !o.dragged && !o.pinned && o !== sel && o.legs === 0);
+              const nl = objs.filter(o => !o.dying && !o.dragged && !o.pinned && o !== ctx.sel && o.legs === 0);
               if (nl.length) ey.victim = nl[(Math.random() * nl.length) | 0];
             }
             ey.state = 'omen'; ey.omenT = 2.6; ey.omenTot = 2.6;
@@ -2457,7 +2516,7 @@ function createFluid(N_MAX) {
         ey.omenT -= dt;
         const prog = 1 - ey.omenT / ey.omenTot;
         if (v) {
-          tx = clamp(v.pos.x, -hx * 0.7, hx * 0.7); ty = Math.min(yMax - 1.1, v.pos.y + 1.9); tz = 1.1;
+          tx = clamp(v.pos.x, -ctx.hx * 0.7, ctx.hx * 0.7); ty = Math.min(ctx.yMax - 1.1, v.pos.y + 1.9); tz = 1.1;
           if (Math.random() < dt * 10) v.qv += (Math.random() - 0.5) * 1.2;
           if (Math.random() < dt * 3) spark(v.pos.x + (Math.random() - 0.5) * v.r, v.pos.y + v.r * 0.5, v.pos.z + 0.3, 1, { color: 0xffffff, speed: 0.4, life: 0.8, size: 0.08, grav: 0.4 });
         }
@@ -2479,7 +2538,7 @@ function createFluid(N_MAX) {
       }
       case 'verdict':
         ey.vT -= dt;
-        if (v) { tx = clamp(v.pos.x, -hx * 0.7, hx * 0.7); ty = Math.min(yMax - 1.1, v.pos.y + 1.9); }
+        if (v) { tx = clamp(v.pos.x, -ctx.hx * 0.7, ctx.hx * 0.7); ty = Math.min(ctx.yMax - 1.1, v.pos.y + 1.9); }
         if (ey.verdict === 'punish') { slit = 1; pupil = 0.07; glowT = 0.8; } else { pupil = 0.27; glowT = 0.9; }
         if (ey.vT <= 0) eyeFinish();
         break;
@@ -2504,10 +2563,10 @@ function createFluid(N_MAX) {
         const cannon = reb.kind === 'cannon';
         if (cannon ? !reb.cn : !reb.plats.length) { ey.state = 'leave'; break; }
         if (cannon) {
-          tx = hx * 0.45 + Math.sin(t * 0.8) * 0.5; ty = clamp(yMin + 4.7 + Math.sin(t * 1.6) * 0.4, yMin + 3, yMax - 1.3); tz = 1.1;
+          tx = ctx.hx * 0.45 + Math.sin(t * 0.8) * 0.5; ty = clamp(ctx.yMin + 4.7 + Math.sin(t * 1.6) * 0.4, ctx.yMin + 3, ctx.yMax - 1.3); tz = 1.1;
         } else {
           const st = reb.plats[reb.L - 1].side;
-          tx = st * (hx - reb.W * 0.7) + Math.sin(t * 0.9) * 0.55; ty = reb.yTop + 1.9 + Math.sin(t * 1.7) * 0.3; tz = 1.1;
+          tx = st * (ctx.hx - reb.W * 0.7) + Math.sin(t * 0.9) * 0.55; ty = reb.yTop + 1.9 + Math.sin(t * 1.7) * 0.3; tz = 1.1;
         }
         pupil = 0.12; glowT = 0.45;
         ey.zapT = Math.max(0, ey.zapT - dt);
@@ -2569,7 +2628,7 @@ function createFluid(N_MAX) {
       }
       case 'master': { // the eye now serves you
         const c = aw.cell;
-        tx = c ? (c.x0 + c.x1) / 2 : 0; ty = clamp((c ? c.y1 : 0) + 2.0 + Math.sin(t * 1.3) * 0.25, yMin + 3, yMax - 1.2); tz = 1.1;
+        tx = c ? (c.x0 + c.x1) / 2 : 0; ty = clamp((c ? c.y1 : 0) + 2.0 + Math.sin(t * 1.3) * 0.25, ctx.yMin + 3, ctx.yMax - 1.2); tz = 1.1;
         pupil = 0.12; slit = 0.5; glowT = 0.5;
         ey.zapT = Math.max(0, ey.zapT - dt); ey.atkT -= dt;
         if (ey.aim > 0) {
@@ -2592,7 +2651,7 @@ function createFluid(N_MAX) {
         break;
       }
       case 'boss': { // the eye sides with the wobblers and takes aim at the finger
-        tx = Math.sin(t * 0.6) * hx * 0.4; ty = yMax - 1.7 + Math.sin(t * 1.3) * 0.3; tz = 1.1;
+        tx = Math.sin(t * 0.6) * ctx.hx * 0.4; ty = ctx.yMax - 1.7 + Math.sin(t * 1.3) * 0.3; tz = 1.1;
         pupil = 0.1; glowT = 0.5; slit = 0.6;
         if (aw.state === 'defeat') { tx = aw.fx * 0.5; ty = aw.fy + 1.9; pupil = 0.3; slit = 0; glowT = 0.3; break; }
         aw.atkCd -= dt;
@@ -2628,8 +2687,8 @@ function createFluid(N_MAX) {
       }
       case 'leave':
         ey.alpha = Math.max(0, ey.alpha - dt / 1.4);
-        ty = yMax + 3.6;
-        if (ey.alpha <= 0 || ey.pos.y > yMax + 3) { ey.state = 'off'; ey.g.visible = false; ribOuter.m.visible = ribCore.m.visible = false; omenRing.visible = false; return; }
+        ty = ctx.yMax + 3.6;
+        if (ey.alpha <= 0 || ey.pos.y > ctx.yMax + 3) { ey.state = 'off'; ey.g.visible = false; ribOuter.m.visible = ribCore.m.visible = false; omenRing.visible = false; return; }
         break;
     }
     if (ey.state !== 'hug') ey.fold += (0 - ey.fold) * (1 - Math.exp(-4 * dt));
@@ -2669,7 +2728,7 @@ function createFluid(N_MAX) {
     let gt = null;
     if (ey.state === 'boss' || ey.state === 'master') gt = aw.fv;
     else if ((ey.state === 'omen' || ey.state === 'verdict' || ey.state === 'hug') && v) gt = v.pos;
-    else if ((clockNow - pointerT) < 4) gt = pointerW;
+    else if ((ctx.clockNow - ctx.pointerT) < 4) gt = pointerW;
     else {
       ey.scanT -= dt;
       if (ey.scanT <= 0) { ey.scanT = 2 + Math.random() * 2; ey.scanObj = objs.length ? objs[(Math.random() * objs.length) | 0] : null; }
@@ -2750,14 +2809,19 @@ function createFluid(N_MAX) {
   const PP = 3, REBEL_AT = 3;
   const BATTLE_PUNISH = ['fling', 'fling', 'fling', 'sick', 'stone', 'shrink'];
   const blocks = [];
+  ctx.blocks = blocks;
   const reb = { state: 'off', total: 0, L: 0, W: 1.4, plats: [], pieces: [], bl: 0, pcs: 0, placed: 0, need: 0, inflight: 0,
                 pile: 4, pileT: 0, supplyX: 1, yTop: 0, t: 0, celT: 0, chargeCd: 0, hinted: false, noneT: 0, delay: 0, stallT: 0,
                 kind: '', genius: null, geniusRolled: false, cn: null, cphase: '', cT: 0 };
+  ctx.reb = reb;
   const towerG = new THREE.Group(); scene.add(towerG);
+  ctx.towerG = towerG;
   const hpEl = document.getElementById('eyehp'), hpFill = document.getElementById('eyehpfill'), chargeBtn = document.getElementById('charge');
+  ctx.hpFill = hpFill; ctx.chargeBtn = chargeBtn;
   const partGeo = new THREE.BoxGeometry(0.4, 0.22, 0.4);
+  ctx.partGeo = partGeo;
   const partMat = new THREE.MeshBasicMaterial({ color: 0xffb36b });
-  let pileBlocks = [];
+  ctx.partMat = partMat;
 
   function countLegged() { let n = 0; for (const o of objs) if (o.legs > 0 && !o.dying && o.stoneT <= 0) n++; return n; }
   function countRebels() { let n = 0; for (const o of objs) if (o.role && !o.dying) n++; return n; }
@@ -2783,7 +2847,7 @@ function createFluid(N_MAX) {
   }
 
   function makePieceMesh(p) {
-    const w = p.x1 - p.x0, h = p.y1 - p.y0, d = 2 * hz, alt = p.plat % 2;
+    const w = p.x1 - p.x0, h = p.y1 - p.y0, d = 2 * ctx.hz, alt = p.plat % 2;
     const top = alt ? 0xc4eaff : 0xffd9a8, side = alt ? 0x4aa8d8 : 0xe0883a;
     const mats = [side, side, top, side, side, side].map(c => new THREE.MeshBasicMaterial({ color: c }));
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats);
@@ -2799,16 +2863,16 @@ function createFluid(N_MAX) {
     });
   }
   function planTower() {
-    reb.W = Math.max(1.0, hx - 0.8);
-    reb.L = clamp(Math.floor((yMax - yMin - 3.4) / 1.2), 3, 5);
+    reb.W = Math.max(1.0, ctx.hx - 0.8);
+    reb.L = clamp(Math.floor((ctx.yMax - ctx.yMin - 3.4) / 1.2), 3, 5);
     reb.plats = []; reb.pieces = [];
     for (let i = 0; i < reb.L; i++) {
-      const side = i % 2 === 0 ? -1 : 1, y = yMin + 1.2 * (i + 1);
+      const side = i % 2 === 0 ? -1 : 1, y = ctx.yMin + 1.2 * (i + 1);
       reb.plats.push({ side, y, done: false });
       for (let j = 0; j < PP; j++) {
-        const w = reb.W / PP, a = side * (hx - j * w), b = side * (hx - (j + 1) * w);
+        const w = reb.W / PP, a = side * (ctx.hx - j * w), b = side * (ctx.hx - (j + 1) * w);
         const p = { plat: i, j, x0: Math.min(a, b), x1: Math.max(a, b), y0: y - 0.22, y1: y, built: false, mesh: null, ghost: null, popT: 1 };
-        const gm = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(p.x1 - p.x0, 0.22, 2 * hz)),
+        const gm = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(p.x1 - p.x0, 0.22, 2 * ctx.hz)),
           new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 }));
         gm.position.set((p.x0 + p.x1) / 2, y - 0.11, 0);
         towerG.add(gm); p.ghost = gm;
@@ -2816,11 +2880,11 @@ function createFluid(N_MAX) {
       }
     }
     reb.yTop = reb.plats[reb.L - 1].y;
-    reb.supplyX = hx - 0.65;
+    reb.supplyX = ctx.hx - 0.65;
     for (const [px, py] of [[-0.28, 0], [0.28, 0], [0, 1], [0, 2]]) {
       const m = new THREE.Mesh(partGeo, partMat);
-      m.position.set(reb.supplyX + px, yMin + 0.12 + py * 0.23, 0);
-      towerG.add(m); pileBlocks.push(m);
+      m.position.set(reb.supplyX + px, ctx.yMin + 0.12 + py * 0.23, 0);
+      towerG.add(m); ctx.pileBlocks.push(m);
     }
   }
   function buildPiece(idx) {
@@ -2835,8 +2899,8 @@ function createFluid(N_MAX) {
       if (p.mesh) { spark((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, 0.8, 8, { color: 0xffd25a, speed: 2.4, life: 0.9, size: 0.12 }); disposeMesh(p.mesh); }
       if (p.ghost) disposeMesh(p.ghost);
     }
-    for (const m of pileBlocks) towerG.remove(m);
-    pileBlocks = [];
+    for (const m of ctx.pileBlocks) towerG.remove(m);
+    ctx.pileBlocks = [];
     blocks.length = 0;
     for (const o of objs) { o.role = o.genius ? 'genius' : null; dropCarry(o); }
     reb.pieces = []; reb.plats = []; reb.L = 0; reb.state = 'off'; reb.total = 0; reb.hinted = false; reb.inflight = 0;
@@ -2857,7 +2921,7 @@ function createFluid(N_MAX) {
     planTower();
     reb.state = 'build'; reb.t = 0; reb.bl = 0; reb.pcs = 0; reb.placed = 0; reb.need = reb.L * PP; reb.inflight = 0;
     reb.pile = 4; reb.pileT = 0; reb.noneT = 0;
-    gMode = 0; gravBtn.textContent = 'Gravity: down';
+    ctx.gMode = 0; gravBtn.textContent = 'Gravity: down';
     say('The wobblers have had enough. They are building something...', 4200);
     chime([196, 247, 294], 260, 0.05);
   }
@@ -2916,7 +2980,7 @@ function createFluid(N_MAX) {
   function updateLevel(o) {
     const low = lowestY(o);
     let lv = null;
-    if (low < yMin + 0.28) lv = -1;
+    if (low < ctx.yMin + 0.28) lv = -1;
     for (let i = reb.plats.length - 1; i >= 0; i--) {
       if (Math.abs(low - reb.plats[i].y) > 0.25) continue;
       for (const p of reb.pieces) {
@@ -2938,10 +3002,10 @@ function createFluid(N_MAX) {
     if (o.lvl >= target) return true;
     const n = o.lvl + 1, p = reb.plats[n];
     if (!p || !p.done) { o.vTarget = 0; return false; }
-    const sn = p.side, xeN = sn * (hx - reb.W), xt = xeN + sn * 0.4;
+    const sn = p.side, xeN = sn * (ctx.hx - reb.W), xt = xeN + sn * 0.4;
     let xs;
     if (o.lvl < 0) xs = ((o.id % 3) - 1) * 0.12;
-    else { const sc = reb.plats[o.lvl].side, xeC = sc * (hx - reb.W); xs = xeC + sc * 0.3; }
+    else { const sc = reb.plats[o.lvl].side, xeC = sc * (ctx.hx - reb.W); xs = xeC + sc * 0.3; }
     const dxs = xs - o.pos.x;
     if (Math.abs(dxs) > 0.16) o.vTarget = Math.sign(dxs) * spd;
     else { o.vTarget = 0; if (o.hopCd <= 0) hopTo(o, xt, p.y); }
@@ -2951,7 +3015,7 @@ function createFluid(N_MAX) {
     o.hopCd = Math.max(0, o.hopCd - dt); o.hitCd = Math.max(0, o.hitCd - dt); o.rally = Math.max(0, o.rally - dt);
     o.vTarget = 0;
     const active = reb.kind === 'cannon' ? !!reb.cn : reb.plats.length > 0;
-    if (gMode !== 0 || (!active && o.role !== 'celebrate' && o.role !== 'genius')) return;
+    if (ctx.gMode !== 0 || (!active && o.role !== 'celebrate' && o.role !== 'genius')) return;
     const grounded = o.groundT > 0 && o.hopT <= 0;
     if (grounded && reb.plats.length) updateLevel(o);
     const spd = 1.7 * (o.rally > 0 ? 1.4 : 1);
@@ -3069,7 +3133,7 @@ function createFluid(N_MAX) {
         }
         reb.pileT += dt;
         if (reb.pile < 4 && reb.pileT > 1.0) { reb.pile++; reb.pileT = 0; }
-        pileBlocks.forEach((m, i) => { m.visible = i < reb.pile; });
+        ctx.pileBlocks.forEach((m, i) => { m.visible = i < reb.pile; });
         if (reb.placed >= reb.need) {
           reb.state = 'built'; reb.delay = 1.8;
           for (const o of objs) dropCarry(o);
@@ -3080,7 +3144,7 @@ function createFluid(N_MAX) {
         break;
       case 'built':
         reb.delay -= dt;
-        pileBlocks.forEach(m => { m.visible = false; });
+        ctx.pileBlocks.forEach(m => { m.visible = false; });
         if (reb.delay <= 0 && ey.state !== 'leave' && ey.state !== 'arrive') beginBattle();
         break;
       case 'battle':
@@ -3097,7 +3161,7 @@ function createFluid(N_MAX) {
         reb.celT -= dt;
         if (Math.random() < dt * 5) {
           const c = [0xff6aa8, 0x6ad8ff, 0xffe14d, 0x9bff7a][(Math.random() * 4) | 0];
-          spark((Math.random() - 0.5) * hx * 1.8, yMax - 0.5, 1, 6, { color: c, speed: 1.6, life: 1.6, size: 0.14, grav: -2.2 });
+          spark((Math.random() - 0.5) * ctx.hx * 1.8, ctx.yMax - 0.5, 1, 6, { color: c, speed: 1.6, life: 1.6, size: 0.14, grav: -2.2 });
         }
         if (reb.celT <= 0) {
           const wasCannon = reb.kind === 'cannon';
@@ -3111,12 +3175,12 @@ function createFluid(N_MAX) {
 
   /* ---------- the genius wobbler and the cannon uprising ---------- */
   function boomSound(v) {
-    if (!actx || !soundOn) return;
-    const dur = 0.5, len = Math.floor(actx.sampleRate * dur), buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+    if (!ctx.actx || !ctx.soundOn) return;
+    const dur = 0.5, len = Math.floor(ctx.actx.sampleRate * dur), buf = ctx.actx.createBuffer(1, len, ctx.actx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
-    const src = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain();
+    const src = ctx.actx.createBufferSource(), lp = ctx.actx.createBiquadFilter(), g = ctx.actx.createGain();
     src.buffer = buf; lp.type = 'lowpass'; lp.frequency.value = 700; g.gain.value = 0.35 * (v || 1);
-    src.connect(lp); lp.connect(g); g.connect(actx.destination); src.start();
+    src.connect(lp); lp.connect(g); g.connect(ctx.actx.destination); src.start();
     tone(70, 0.5, 0.18 * (v || 1), 'sawtooth', 0.35);
   }
 
@@ -3133,6 +3197,7 @@ function createFluid(N_MAX) {
     return (textTexCache[key] = new THREE.CanvasTexture(c));
   }
   const popTexts = [];
+  ctx.popTexts = popTexts;
   function popText(x, y, txt, color, life, size) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTex(txt, color || '#ffffff'), transparent: true, depthTest: false, depthWrite: false, opacity: 0 }));
     const w = size || 1.0;
@@ -3150,16 +3215,15 @@ function createFluid(N_MAX) {
   }
 
   // outfit sprites for the genius
-  let outfitTex = null;
   function mkTex(w, h, draw) {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     draw(c.getContext('2d'));
     return new THREE.CanvasTexture(c);
   }
   function outfitTextures() {
-    if (outfitTex) return outfitTex;
+    if (ctx.outfitTex) return ctx.outfitTex;
     const ink = '#12082b';
-    outfitTex = {
+    ctx.outfitTex = {
       coat: mkTex(128, 128, g => {
         g.lineWidth = 4; g.strokeStyle = ink; g.fillStyle = '#f6f8ff';
         g.beginPath(); g.moveTo(14, 6); g.lineTo(114, 6); g.lineTo(124, 124); g.lineTo(4, 124); g.closePath(); g.fill(); g.stroke();
@@ -3219,7 +3283,7 @@ function createFluid(N_MAX) {
         g.strokeStyle = '#d98a1a'; g.lineWidth = 2; g.beginPath(); g.moveTo(26, 56); g.lineTo(28, 40); g.lineTo(32, 46); g.lineTo(36, 40); g.lineTo(38, 56); g.stroke();
       })
     };
-    return outfitTex;
+    return ctx.outfitTex;
   }
   function stickBetween(a, b, r, mat) {
     const d = new THREE.Vector3().subVectors(b, a), len = d.length();
@@ -3381,7 +3445,7 @@ function createFluid(N_MAX) {
   }
   function spawnGenius() {
     if (objs.length >= MAX_OBJS) { const old = objs.find(x => !x.dragged && !x.dying && !x.pinned && !x.role && !x.genius); if (old) removeObj(old); else return; }
-    const g = addObj(0, clamp((Math.random() - 0.5) * hx, -hx + 0.9, hx - 0.9), yMax - 0.8);
+    const g = addObj(0, clamp((Math.random() - 0.5) * ctx.hx, -ctx.hx + 0.9, ctx.hx - 0.9), ctx.yMax - 0.8);
     g.pos.z = 0; g.vel.set(0, -1, 0);
     g.genius = true; g.size = g.sizeT = 1.1; g.clumsy = 0.45; g.stamina = 1; g.pace = 0.8; g.homeX = g.pos.x;
     g.mat.uniforms.uColA.value.setHex(0xfff2a8); g.mat.uniforms.uColB.value.setHex(0xffd25a);
@@ -3406,7 +3470,7 @@ function createFluid(N_MAX) {
   // --- the cannon ---
   function cylX(r, len) { const g = new THREE.CylinderGeometry(r, r, len, 16); g.rotateZ(-Math.PI / 2); return g; }
   function planCannon() {
-    const x = -hx + 1.3, fy = yMin;
+    const x = -ctx.hx + 1.3, fy = ctx.yMin;
     const cn = { x, px: x + 0.15, py: fy + 0.82, angle: 0.9, fireCd: 0, recoil: 0, droop: 0, loaded: null, loader: null, aimT: 0, built: 0, parts: [], block: null, noAmmoT: 0 };
     const g = new THREE.Group(); scene.add(g); cn.g = g; g.visible = false;
     const ghost = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.1 });
@@ -3425,11 +3489,11 @@ function createFluid(N_MAX) {
       { meshes: [mk(cylX(0.31, 0.2), brass, cn.barrel, 1.05, 0, 0)], popT: 1 }
     ];
     reb.cn = cn;
-    reb.supplyX = hx - 0.65;
+    reb.supplyX = ctx.hx - 0.65;
     for (const [px, py] of [[-0.28, 0], [0.28, 0], [0, 1], [0, 2]]) {
       const m = new THREE.Mesh(partGeo, partMat);
-      m.position.set(reb.supplyX + px, yMin + 0.12 + py * 0.23, 0);
-      towerG.add(m); pileBlocks.push(m);
+      m.position.set(reb.supplyX + px, ctx.yMin + 0.12 + py * 0.23, 0);
+      towerG.add(m); ctx.pileBlocks.push(m);
     }
   }
   function buildCannonPart(i) {
@@ -3440,8 +3504,8 @@ function createFluid(N_MAX) {
       e.m.material = e.solid;
       e.m.add(new THREE.LineSegments(new THREE.EdgesGeometry(e.m.geometry, 30), new THREE.LineBasicMaterial({ color: 0x12082b })));
     }
-    if (i === 2) { cn.block = { x0: cn.x - 0.7, x1: cn.x + 0.7, y0: yMin, y1: yMin + 0.5 }; blocks.push(cn.block); }
-    spark(cn.x, yMin + 0.7, 0.8, 10, { color: 0xffd25a, speed: 2, life: 0.8, size: 0.12 });
+    if (i === 2) { cn.block = { x0: cn.x - 0.7, x1: cn.x + 0.7, y0: ctx.yMin, y1: ctx.yMin + 0.5 }; blocks.push(cn.block); }
+    spark(cn.x, ctx.yMin + 0.7, 0.8, 10, { color: 0xffd25a, speed: 2, life: 0.8, size: 0.12 });
   }
   function cannonPop(dt) {
     const cn = reb.cn;
@@ -3457,8 +3521,8 @@ function createFluid(N_MAX) {
     reb.kind = 'cannon'; reb.state = 'build'; reb.t = 0; reb.cphase = 'design'; reb.cT = 0;
     planCannon();
     reb.placed = 0; reb.need = 6; reb.inflight = 0; reb.pile = 4; reb.pileT = 0; reb.noneT = 0; reb.stallT = 0;
-    pileBlocks.forEach(m => { m.visible = false; });
-    gMode = 0; gravBtn.textContent = 'Gravity: down';
+    ctx.pileBlocks.forEach(m => { m.visible = false; });
+    ctx.gMode = 0; gravBtn.textContent = 'Gravity: down';
     startIdea(reb.genius, 'cannon');
     say('The genius has a plan... a CANNON!', 4200);
     chime([196, 247, 294, 392], 240, 0.05);
@@ -3507,7 +3571,7 @@ function createFluid(N_MAX) {
     }
     reb.pileT += dt;
     if (reb.pile < 4 && reb.pileT > 1.0) { reb.pile++; reb.pileT = 0; }
-    pileBlocks.forEach((m, i) => { m.visible = i < reb.pile; });
+    ctx.pileBlocks.forEach((m, i) => { m.visible = i < reb.pile; });
     if (cn.built >= 6) {
       reb.state = 'built'; reb.delay = 1.8;
       for (const o of objs) dropCarry(o);
@@ -3533,11 +3597,11 @@ function createFluid(N_MAX) {
   }
   function aimAngle(cn) { return aimAt(cn, ey.pos.x, ey.pos.y, ey.vel.x, ey.vel.y); }
   function ammoCandidates() {
-    return objs.filter(a => a.legs === 0 && !a.genius && !a.dying && !a.pinned && !a.dragged && !a.carried && a.stoneT <= 0 && !(a.ammoT > 0) && a !== sel);
+    return objs.filter(a => a.legs === 0 && !a.genius && !a.dying && !a.pinned && !a.dragged && !a.carried && a.stoneT <= 0 && !(a.ammoT > 0) && a !== ctx.sel);
   }
   function endAmmo(o) {
     o.ammoT = 0;
-    if (o.disposable) { if (sel === o) closeEditor(); o.dying = true; o.dieT = 0; o.moodT = 1; addRing(o.pos, 0xb0b0c0, 1.3); }
+    if (o.disposable) { if (ctx.sel === o) closeEditor(); o.dying = true; o.dieT = 0; o.moodT = 1; addRing(o.pos, 0xb0b0c0, 1.3); }
     else { if (o.origSizeT) { o.sizeT = o.origSizeT; o.origSizeT = 0; } o.sickT = Math.max(o.sickT, 1.5); }
   }
   function releaseAmmo() {
@@ -3589,7 +3653,7 @@ function createFluid(N_MAX) {
   }
   function spawnIron() {
     if (objs.length >= MAX_OBJS) return;
-    const b = addObj(0, clamp(reb.supplyX - 0.2, -hx + 0.8, hx - 0.8), yMax - 0.8);
+    const b = addObj(0, clamp(reb.supplyX - 0.2, -ctx.hx + 0.8, ctx.hx - 0.8), ctx.yMax - 0.8);
     b.pos.z = 0; b.disposable = true; b.size = b.sizeT = 0.8; applySize(b);
     b.mat.uniforms.uColA.value.setHex(0x3a3a48); b.mat.uniforms.uColB.value.setHex(0x6c6c80);
     b.vel.set(0, -1, 0); b.moodT = 1;
@@ -3675,11 +3739,15 @@ function createFluid(N_MAX) {
     resolve: 1, smashCd: 0, cell: null, vilT: 0, capT: 0, betrayT: 15, rattle: 0, zapCd: 0, gray: 0, traitors: 0, escapee: null, escapeT: 0,
     fx: 0, fy: 0, fvx: 0, fvy: 0, fv: new THREE.Vector3(), zapObj: { pos: new THREE.Vector3() }, finger: null, hurtCd: 0, lullT: 0
   };
+  ctx.aw = aw;
   const awVig = document.getElementById('awvig'), bossHpEl = document.getElementById('bosshp'), bossFill = document.getElementById('bosshpfill');
+  ctx.awVig = awVig; ctx.bossHpEl = bossHpEl; ctx.bossFill = bossFill;
   const awPanel = document.getElementById('awpanel'), trustFill = document.getElementById('awtrustfill');
+  ctx.awPanel = awPanel;
   const sorryBtn = document.getElementById('aw-sorry'), giftBtn = document.getElementById('aw-gift'), freeBtn = document.getElementById('aw-free');
+  ctx.sorryBtn = sorryBtn; ctx.giftBtn = giftBtn; ctx.freeBtn = freeBtn;
   const pick = arr => arr[(Math.random() * arr.length) | 0];
-  function pointerActive() { return pointers.size > 0 || (clockNow - pointerT) < 1.5; }
+  function pointerActive() { return pointers.size > 0 || (ctx.clockNow - ctx.pointerT) < 1.5; }
 
   // speech bubbles
   const bubTexCache = {};
@@ -3703,6 +3771,7 @@ function createFluid(N_MAX) {
     return (bubTexCache[text] = new THREE.CanvasTexture(c));
   }
   const bubbles = [];
+  ctx.bubbles = bubbles;
   function bubble(o, text, life) {
     if (!o || bubbles.length > 6) return;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex(text), transparent: true, depthTest: false, depthWrite: false, opacity: 0 }));
@@ -3787,7 +3856,7 @@ function createFluid(N_MAX) {
     impact(o, tmpV.set(dx / d, dy / d, 0), 6);
     bubble(o, pick(SAY.slip), 1.8);
     if (aw.state === 'wary') {
-      aw.grabs.push(clockNow); aw.grabs = aw.grabs.filter(x => clockNow - x < 12);
+      aw.grabs.push(ctx.clockNow); aw.grabs = aw.grabs.filter(x => ctx.clockNow - x < 12);
       if (aw.grabs.length >= 3) { startBoss('grab'); return; }
       awAggress(0.05);
     }
@@ -3799,7 +3868,7 @@ function createFluid(N_MAX) {
     if (aw.state === 'villain') {
       if (o.caged) o.vTarget = aw.gray > 0.5 ? 0 : Math.sin(t * 0.6 + o.id) * 0.4;
       else { // the ones who talked their way out wander beside the cell, watching
-        const c = aw.cell, lo = (c ? c.x1 : 0) + 0.45, hi = hx - 0.45;
+        const c = aw.cell, lo = (c ? c.x1 : 0) + 0.45, hi = ctx.hx - 0.45;
         if (o.pos.x < lo) o.vTarget = 0.9; else if (o.pos.x > hi) o.vTarget = -0.9; else o.vTarget = Math.sin(t * 0.5 + o.id) * 0.6;
       }
       return;
@@ -3864,9 +3933,9 @@ function createFluid(N_MAX) {
     chime([196, 233, 262], 200, 0.05);
     ey.allyMode = true; ey.battleMode = false;
     if (ey.state === 'off') summonEye();
-    gMode = 0; gravBtn.textContent = 'Gravity: down';
+    ctx.gMode = 0; gravBtn.textContent = 'Gravity: down';
     planCannon(); reb.cn.g.visible = true; reb.cn.mats[0].opacity = 0.35;
-    pileBlocks.forEach(m => { m.visible = false; });
+    ctx.pileBlocks.forEach(m => { m.visible = false; });
   }
   function bossFrame(dt, t) {
     aw.bossT += dt; aw.hurtCd = Math.max(0, aw.hurtCd - dt);
@@ -3935,8 +4004,8 @@ function createFluid(N_MAX) {
     if (aw.pill) aw.pill.visible = false;
     eyeBtn.hidden = false; eyeBtn.textContent = 'Summon eye';
     disposeCannon(false);
-    for (const m of pileBlocks) towerG.remove(m);
-    pileBlocks = [];
+    for (const m of ctx.pileBlocks) towerG.remove(m);
+    ctx.pileBlocks = [];
     if (ey.state !== 'off') { ey.allyMode = false; releaseVictim(); ey.state = 'leave'; }
     if (kind === 'free') {
       for (const o of objs) if (!o.dying && o.legs === 0 && !o.disposable) { setLegs(o, 2 + ((Math.random() * 3) | 0)); o.beh.wander = true; }
@@ -3952,8 +4021,8 @@ function createFluid(N_MAX) {
   function abortAwakening() {
     if (aw.state === 'off') return;
     disposeCannon(false);
-    for (const m of pileBlocks) towerG.remove(m);
-    pileBlocks = [];
+    for (const m of ctx.pileBlocks) towerG.remove(m);
+    ctx.pileBlocks = [];
     for (const b of bubbles) { scene.remove(b.sp); b.sp.material.dispose(); }
     bubbles.length = 0;
     if (aw.pill) aw.pill.visible = false;
@@ -4043,7 +4112,7 @@ function createFluid(N_MAX) {
       case 'villain': villainFrame(dt, t); break;
       case 'peace':
         aw.peaceT -= dt;
-        if (Math.random() < dt * 4) spark((Math.random() - 0.5) * hx * 1.8, yMax - 0.5, 1, 4, { color: pick([0xff9ad2, 0xffe9a0, 0xbfe3ff]), speed: 1.4, life: 1.6, size: 0.16, grav: -1.8 });
+        if (Math.random() < dt * 4) spark((Math.random() - 0.5) * ctx.hx * 1.8, ctx.yMax - 0.5, 1, 4, { color: pick([0xff9ad2, 0xffe9a0, 0xbfe3ff]), speed: 1.4, life: 1.6, size: 0.16, grav: -1.8 });
         if (aw.peaceT <= 0) { aw.state = 'off'; aw.count++; reb.total = 0; }
         break;
     }
@@ -4051,7 +4120,9 @@ function createFluid(N_MAX) {
 
   /* ---------- the villain ending: smash their resolve and lock them all in one cell ---------- */
   const resolveEl = document.getElementById('resolvehp'), resolveFill = document.getElementById('resolvefill');
+  ctx.resolveEl = resolveEl; ctx.resolveFill = resolveFill;
   const vilPanel = document.getElementById('vilpanel'), vilFree = document.getElementById('vil-free');
+  ctx.vilPanel = vilPanel;
   function hitThem(d) {
     if (aw.state !== 'boss') return;
     aw.resolve -= d;
@@ -4077,17 +4148,17 @@ function createFluid(N_MAX) {
     hitThem(0.03);
   }
   function planCell() {
-    const W = Math.min(2.5, 2 * hx - 1.5), H = Math.min(3.8, (yMax - yMin) * 0.55);
-    const x0 = -hx + 0.1, x1 = x0 + W, y1 = yMin + H, cx = (x0 + x1) / 2;
-    const g = new THREE.Group(); g.position.set(0, yMin, 0); scene.add(g);
+    const W = Math.min(2.5, 2 * ctx.hx - 1.5), H = Math.min(3.8, (ctx.yMax - ctx.yMin) * 0.55);
+    const x0 = -ctx.hx + 0.1, x1 = x0 + W, y1 = ctx.yMin + H, cx = (x0 + x1) / 2;
+    const g = new THREE.Group(); g.position.set(0, ctx.yMin, 0); scene.add(g);
     const steel = new THREE.MeshBasicMaterial({ color: 0x4a4d66 });
     const glass = new THREE.MeshBasicMaterial({ color: 0x7a3dff, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
     const add = (w, h, d, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
     const n = Math.max(4, Math.floor(W / 0.28));
-    for (let i = 0; i < n; i++) add(0.07, H, 0.07, x0 + 0.14 + i * (W - 0.28) / (n - 1), H / 2, hz - 0.05, steel);
-    add(W, 0.09, 0.09, cx, H, hz - 0.05, steel); add(W, 0.09, 0.09, cx, H / 2, hz - 0.05, steel); add(W, 0.09, 0.09, cx, 0.05, hz - 0.05, steel);
-    add(0.05, H, 2 * hz, x0, H / 2, 0, glass); add(0.05, H, 2 * hz, x1, H / 2, 0, glass); add(W, 0.05, 2 * hz, cx, H, 0, glass);
-    add(W, H, 0.02, cx, H / 2, -hz + 0.05, glass);
+    for (let i = 0; i < n; i++) add(0.07, H, 0.07, x0 + 0.14 + i * (W - 0.28) / (n - 1), H / 2, ctx.hz - 0.05, steel);
+    add(W, 0.09, 0.09, cx, H, ctx.hz - 0.05, steel); add(W, 0.09, 0.09, cx, H / 2, ctx.hz - 0.05, steel); add(W, 0.09, 0.09, cx, 0.05, ctx.hz - 0.05, steel);
+    add(0.05, H, 2 * ctx.hz, x0, H / 2, 0, glass); add(0.05, H, 2 * ctx.hz, x1, H / 2, 0, glass); add(W, 0.05, 2 * ctx.hz, cx, H, 0, glass);
+    add(W, H, 0.02, cx, H / 2, -ctx.hz + 0.05, glass);
     const lockTex = mkTex(96, 120, c => {
       c.strokeStyle = '#12082b'; c.lineWidth = 6; c.fillStyle = '#ffd25a';
       c.beginPath(); c.arc(48, 40, 24, Math.PI, 0); c.stroke();
@@ -4095,9 +4166,9 @@ function createFluid(N_MAX) {
       c.fillStyle = '#12082b'; c.beginPath(); c.arc(48, 70, 8, 0, 6.283); c.fill(); c.fillRect(45, 72, 6, 20);
     });
     const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true, depthTest: false }));
-    lock.position.set(cx, H - 0.1, hz + 0.1); lock.scale.set(0.5, 0.62, 1); lock.renderOrder = 6; g.add(lock);
+    lock.position.set(cx, H - 0.1, ctx.hz + 0.1); lock.scale.set(0.5, 0.62, 1); lock.renderOrder = 6; g.add(lock);
     const blks = [
-      { x0: x0 - 0.15, x1: x0, y0: yMin, y1: y1 + 0.15 }, { x0: x1, x1: x1 + 0.15, y0: yMin, y1: y1 + 0.15 },
+      { x0: x0 - 0.15, x1: x0, y0: ctx.yMin, y1: y1 + 0.15 }, { x0: x1, x1: x1 + 0.15, y0: ctx.yMin, y1: y1 + 0.15 },
       { x0: x0 - 0.15, x1: x1 + 0.15, y0: y1, y1: y1 + 0.15 }
     ];
     g.scale.y = 0.02;
@@ -4111,7 +4182,7 @@ function createFluid(N_MAX) {
     c.mats.forEach(m => m.dispose());
     scene.remove(c.g);
     for (const b of c.blocks) { const i = blocks.indexOf(b); if (i >= 0) blocks.splice(i, 1); }
-    spark((c.x0 + c.x1) / 2, yMin + c.H / 2, 1, 30, { color: 0xb88bff, speed: 3.5, life: 1.3, size: 0.14, spread: c.W });
+    spark((c.x0 + c.x1) / 2, ctx.yMin + c.H / 2, 1, 30, { color: 0xb88bff, speed: 3.5, life: 1.3, size: 0.14, spread: c.W });
     aw.cell = null;
   }
   function startVillain() {
@@ -4122,9 +4193,9 @@ function createFluid(N_MAX) {
     if (aw.finger) aw.finger.visible = false;
     aw.zapPhase = 0;
     disposeCannon(false);
-    for (const m of pileBlocks) towerG.remove(m);
-    pileBlocks = [];
-    gMode = 0; gravBtn.textContent = 'Gravity: down';
+    for (const m of ctx.pileBlocks) towerG.remove(m);
+    ctx.pileBlocks = [];
+    ctx.gMode = 0; gravBtn.textContent = 'Gravity: down';
     planCell();
     const c = aw.cell, list = objs.filter(o => !o.dying);
     const cap = clamp(Math.sqrt(c.W * c.H / (Math.max(list.length, 1) * 1.7)), 0.4, 0.8);
@@ -4133,7 +4204,7 @@ function createFluid(N_MAX) {
       o.caged = true; o.pinned = true; o.carried = true; o.role = null; o.vel.set(0, 0, 0); o.ammoT = 0;
       o.sizeT = Math.min(o.sizeT, cap); o.legLen = Math.min(o.legLen, 0.35);
       const col = i % cols, row = (i / cols) | 0;
-      o.pinTarget.set(c.x0 + 0.3 + (col + 0.5) * (c.W - 0.6) / cols, yMin + 0.45 + row * cap * 1.15, 0);
+      o.pinTarget.set(c.x0 + 0.3 + (col + 0.5) * (c.W - 0.6) / cols, ctx.yMin + 0.45 + row * cap * 1.15, 0);
       o.moodT = 1.5;
     });
     ey.allyMode = false;
@@ -4171,7 +4242,7 @@ function createFluid(N_MAX) {
     const c = aw.cell;
     if (!c || objs.indexOf(T) < 0) return;
     T.caged = false; T.sickT = 0; T.goldT = 40;
-    T.pos.set(Math.min(hx - 0.5, c.x1 + 0.9), yMin + 0.8, 0); T.vel.set(0, 0, 0);
+    T.pos.set(Math.min(ctx.hx - 0.5, c.x1 + 0.9), ctx.yMin + 0.8, 0); T.vel.set(0, 0, 0);
     aw.traitors++;
     bubble(T, pick(['thank you, master', 'I am sorry...', 'I am free!']), 2.8);
     spark(T.pos.x, T.pos.y, 0.5, 18, { color: 0xffe28a, speed: 2.6, life: 1, size: 0.13, spread: T.r });
@@ -4186,7 +4257,7 @@ function createFluid(N_MAX) {
     // prisoners stay inside
     for (const o of objs) {
       if (!o.caged || o.dying) continue;
-      if (o.pos.x < c.x0 - 0.2 || o.pos.x > c.x1 + 0.2 || o.pos.y > c.y1 + 0.2) { o.pos.set((c.x0 + c.x1) / 2, yMin + 1.0, 0); o.vel.set(0, 0, 0); }
+      if (o.pos.x < c.x0 - 0.2 || o.pos.x > c.x1 + 0.2 || o.pos.y > c.y1 + 0.2) { o.pos.set((c.x0 + c.x1) / 2, ctx.yMin + 1.0, 0); o.vel.set(0, 0, 0); }
     }
     const pris = objs.filter(o => o.caged && !o.dying);
     // pleading, which dwindles as the personality drains away
@@ -4227,7 +4298,7 @@ function createFluid(N_MAX) {
     aw.giftCd = 2; aw.gifts++;
     aw.trust = clamp(aw.trust + 0.14, 0, 1);
     if (objs.length < MAX_OBJS) {
-      const ob = addObj(Math.floor(Math.random() * AUTO_SHAPES), clamp((Math.random() - 0.5) * hx * 1.4, -hx + 0.8, hx - 0.8), yMax - 0.8);
+      const ob = addObj(Math.floor(Math.random() * AUTO_SHAPES), clamp((Math.random() - 0.5) * ctx.hx * 1.4, -ctx.hx + 0.8, ctx.hx - 0.8), ctx.yMax - 0.8);
       ob.pos.z = 0; ob.vel.set(0, -1, 0); ob.goldT = 14; ob.moodT = 1.5;
       spark(ob.pos.x, ob.pos.y, 0.5, 14, { color: 0xffe28a, speed: 2.4, life: 0.9, size: 0.13, spread: ob.r });
     }
@@ -4240,6 +4311,7 @@ function createFluid(N_MAX) {
   /* ---------- arms: jointed arms that wave, point, carry, punch, throw and hug ---------- */
   const aQt = new THREE.Quaternion(), aZ = new THREE.Vector3(), aS = new THREE.Vector3(), aH = new THREE.Vector3(),
         aK = new THREE.Vector3(), aD = new THREE.Vector3(), aB = new THREE.Vector3(), aTp = new THREE.Vector3(), aOff = new THREE.Vector3();
+  ctx.aZ = aZ; ctx.aTp = aTp;
   function defaultAbeh() { return { gesture: true, punch: true, grab: true, hug: true }; }
   function clearArms(o) {
     for (const a of o.armMeshes) { a.sticks.forEach(m => scene.remove(m)); a.joints.forEach(m => scene.remove(m)); scene.remove(a.hand); }
@@ -4569,26 +4641,26 @@ function createFluid(N_MAX) {
   /* ---------- start ---------- */
   const start = [0, 1, 0, 2, 3, 1, 4];
   start.forEach((s, i) => {
-    addObj(s, (Math.random() - 0.5) * hx * 1.3, yMax - 0.9 - i * 0.65);
-    nextShape = (nextShape + 1);
+    addObj(s, (Math.random() - 0.5) * ctx.hx * 1.3, ctx.yMax - 0.9 - i * 0.65);
+    ctx.nextShape = (ctx.nextShape + 1);
   });
-  nextShape = 5;
+  ctx.nextShape = 5;
   say('Press to squish, flick to throw, long-press to edit. Tap empty space to blast.', 7000);
 
   /* ---------- render loop ---------- */
-  let last = performance.now(), time = 0;
+  ctx.last = performance.now();
   const pv = new THREE.Vector3();
   function frame(now) {
     requestAnimationFrame(frame);
-    const dt = Math.min((now - last) / 1000, 0.05);
-    last = now; time += dt; clockNow = time;
-    timeU.value = time;
-    for (const o of objs) if (o.legs > 0) legBrain(o, dt, time);
-    step(dt / 2, time); step(dt / 2, time);
-    fluidFrame(dt, time);
-    rebelFrame(dt, time);
-    awakeFrame(dt, time);
-    eyeFrame(dt, time);
+    const dt = Math.min((now - ctx.last) / 1000, 0.05);
+    ctx.last = now; ctx.time += dt; ctx.clockNow = ctx.time;
+    timeU.value = ctx.time;
+    for (const o of objs) if (o.legs > 0) legBrain(o, dt, ctx.time);
+    step(dt / 2, ctx.time); step(dt / 2, ctx.time);
+    fluidFrame(dt, ctx.time);
+    rebelFrame(dt, ctx.time);
+    awakeFrame(dt, ctx.time);
+    eyeFrame(dt, ctx.time);
 
     for (const o of objs.slice()) {
       o.mesh.position.copy(o.pos);
@@ -4606,12 +4678,12 @@ function createFluid(N_MAX) {
       o.mesh.scale.set(o.size * o.sx * sc, o.size * o.sy * sc, o.size * o.sz * sc);
       const ek = 1 + 0.12 * o.level;
       o.eyes.s.scale.set(o.size * 0.9 * sc * ek, o.size * 0.45 * sc * ek, 1);
-      updateLegs(o, dt, time, sc);
-      if (o.arms > 0) updateArms(o, dt, time, sc);
-      if (o.outfit) updateOutfit(o, time, sc);
+      updateLegs(o, dt, ctx.time, sc);
+      if (o.arms > 0) updateArms(o, dt, ctx.time, sc);
+      if (o.outfit) updateOutfit(o, ctx.time, sc);
       const u = o.mat.uniforms;
       u.uQ.value = o.q; u.uRip.value = o.rip * (o.wob < 0 ? 1 + o.wob : 1); u.uPress.value = o.p;
-      divineStatus(o, dt, time);
+      divineStatus(o, dt, ctx.time);
       { const kk = 1 - Math.exp(-6 * dt);
         u.uStone.value += ((o.stoneT > 0 ? 1 : 0) - u.uStone.value) * kk;
         u.uSick.value += ((o.sickT > 0 ? 1 : 0) - u.uSick.value) * kk;
@@ -4620,16 +4692,16 @@ function createFluid(N_MAX) {
 
       pv.copy(o.pos).project(camera);
       let tx, ty;
-      if (time - look.last < 3) { tx = look.x; ty = look.y; }
-      else { tx = Math.sin(time * 0.6 + o.id) * 0.6; ty = Math.cos(time * 0.45 + o.id * 1.7) * 0.6; }
+      if (ctx.time - look.last < 3) { tx = look.x; ty = look.y; }
+      else { tx = Math.sin(ctx.time * 0.6 + o.id) * 0.6; ty = Math.cos(ctx.time * 0.45 + o.id * 1.7) * 0.6; }
       const dx = (tx - pv.x) * camera.aspect, dy = ty - pv.y;
       const len = Math.hypot(dx, dy) || 1;
       const m = Math.min(len * 2, 1);
       const mood = o.dragged ? 2 : (o.moodT > 0 ? 1 : ((aw.state === 'villain' && o.caged && aw.gray > 0.55) ? 3 : (o.stoneT > 0 ? 2 : (o.sickT > 0 ? 4 : (o.legs > 0 ? ((o.state === 'fall' || o.dizzyT > 0) ? 4 : ((o.state === 'rest' || o.energy < 0.3) ? 3 : 0)) : 0)))));
-      const blink = ((time + o.id * 1.7) % (3.5 + (o.id % 3))) < 0.13;
+      const blink = ((ctx.time + o.id * 1.7) % (3.5 + (o.id % 3))) < 0.13;
       let ex = dx / len * m, ey = dy / len * m;
-      if (aw.state === 'notice' || aw.state === 'villain' || (aw.state === 'wary' && !(clockNow - pointerT < 1.5))) { ex = 0; ey = 0; } // staring right at you
-      if (mood === 4) { ex = Math.cos(time * 9 + o.id) * 0.8; ey = Math.sin(time * 9 + o.id) * 0.8; }
+      if (aw.state === 'notice' || aw.state === 'villain' || (aw.state === 'wary' && !(ctx.clockNow - ctx.pointerT < 1.5))) { ex = 0; ey = 0; } // staring right at you
+      if (mood === 4) { ex = Math.cos(ctx.time * 9 + o.id) * 0.8; ey = Math.sin(ctx.time * 9 + o.id) * 0.8; }
       drawEyes(o.eyes, ex, ey, mood, blink);
       o.eyes.s.position.set(o.pos.x, o.pos.y + o.size * 0.08, o.pos.z + o.front);
       o.eyes.s.material.rotation = clamp(-o.vel.x * 0.03, -0.5, 0.5);
@@ -4646,17 +4718,17 @@ function createFluid(N_MAX) {
 
     for (let i = 0; i < MOTES; i++) {
       moteArr[i * 3 + 1] += dt * 0.25;
-      moteArr[i * 3] += Math.sin(time * 0.4 + i) * dt * 0.05;
+      moteArr[i * 3] += Math.sin(ctx.time * 0.4 + i) * dt * 0.05;
       if (moteArr[i * 3 + 1] > 8) moteArr[i * 3 + 1] = -8;
     }
     moteGeo.attributes.position.needsUpdate = true;
 
     renderFluidField();
 
-    if (sel && objs.indexOf(sel) >= 0) {
+    if (ctx.sel && objs.indexOf(ctx.sel) >= 0) {
       selRing.visible = true;
-      selRing.position.set(sel.pos.x, sel.pos.y, sel.pos.z + sel.front * 0.5);
-      selRing.scale.setScalar(sel.r * (1.25 + 0.05 * Math.sin(time * 6)));
+      selRing.position.set(ctx.sel.pos.x, ctx.sel.pos.y, ctx.sel.pos.z + ctx.sel.front * 0.5);
+      selRing.scale.setScalar(ctx.sel.r * (1.25 + 0.05 * Math.sin(ctx.time * 6)));
     } else selRing.visible = false;
 
     renderer.render(scene, camera);
@@ -4666,34 +4738,34 @@ function createFluid(N_MAX) {
     objs, ey, reb, aw, FL, fluid, blocks, scene, camera, rings, look,
     addObj, removeObj, summonEye, spawnGenius, startAwakening, startBoss, peaceEnding, abortRebellion, abortAwakening, defeatEye,
     applyPunish, applyPrize,
-    get W() { return W; },
-    get H() { return H; },
-    get hx() { return hx; },
-    get hy() { return hy; },
-    get hz() { return hz; },
-    get yMin() { return yMin; },
-    get yMax() { return yMax; },
-    get uid() { return uid; },
-    get nextShape() { return nextShape; },
-    get actx() { return actx; },
-    get soundOn() { return soundOn; },
-    get lastSnd() { return lastSnd; },
-    get gMode() { return gMode; },
-    get clockNow() { return clockNow; },
-    get sayTimer() { return sayTimer; },
-    get hintDone() { return hintDone; },
-    get tool() { return tool; },
-    get sel() { return sel; },
-    get fluidOpen() { return fluidOpen; },
-    get fluidAcc() { return fluidAcc; },
-    get fluidMs() { return fluidMs; },
-    get stirHinted() { return stirHinted; },
-    get pointerT() { return pointerT; },
-    get spHead() { return spHead; },
-    get pileBlocks() { return pileBlocks; },
-    get outfitTex() { return outfitTex; },
-    get last() { return last; },
-    get time() { return time; },
+    get W() { return ctx.W; },
+    get H() { return ctx.H; },
+    get hx() { return ctx.hx; },
+    get hy() { return ctx.hy; },
+    get hz() { return ctx.hz; },
+    get yMin() { return ctx.yMin; },
+    get yMax() { return ctx.yMax; },
+    get uid() { return ctx.uid; },
+    get nextShape() { return ctx.nextShape; },
+    get actx() { return ctx.actx; },
+    get soundOn() { return ctx.soundOn; },
+    get lastSnd() { return ctx.lastSnd; },
+    get gMode() { return ctx.gMode; },
+    get clockNow() { return ctx.clockNow; },
+    get sayTimer() { return ctx.sayTimer; },
+    get hintDone() { return ctx.hintDone; },
+    get tool() { return ctx.tool; },
+    get sel() { return ctx.sel; },
+    get fluidOpen() { return ctx.fluidOpen; },
+    get fluidAcc() { return ctx.fluidAcc; },
+    get fluidMs() { return ctx.fluidMs; },
+    get stirHinted() { return ctx.stirHinted; },
+    get pointerT() { return ctx.pointerT; },
+    get spHead() { return ctx.spHead; },
+    get pileBlocks() { return ctx.pileBlocks; },
+    get outfitTex() { return ctx.outfitTex; },
+    get last() { return ctx.last; },
+    get time() { return ctx.time; },
   };
   return { debug };
 }

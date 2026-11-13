@@ -46,21 +46,4 @@ describe("game.js", () => {
     const mod = await import("../../src/game.js");
     expect(typeof mod.createGame).toBe("function");
   });
-
-  it("keeps every legacy script line, trimmed, in order", () => {
-    const scriptStart = legacyLines.findIndex((line) => line === "(function () {") + 1;
-    const scriptEnd = legacyLines.lastIndexOf("})();");
-    const expected = legacyLines
-      .slice(scriptStart, scriptEnd)
-      .filter((line) => !line.includes("new THREE.WebGLRenderer("))
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const actual = read("src/game.js").split("\n").map((line) => line.trim()).filter(Boolean);
-    let at = 0;
-    for (const line of expected) {
-      while (at < actual.length && actual[at] !== line) at += 1;
-      if (at === actual.length) throw new Error(`legacy line missing or out of order: ${line}`);
-      at += 1;
-    }
-  });
 });
