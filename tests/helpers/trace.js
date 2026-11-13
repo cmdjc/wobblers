@@ -100,6 +100,10 @@ function describeDom(document) {
   return out;
 }
 
+const REMOVED_DEAD_FIELDS = { ey: ["fold", "featherMat", "wings"] };
+
+const without = (fields, removed = []) => Object.fromEntries(Object.entries(fields).filter(([key]) => !removed.includes(key)));
+
 export function snapshot(debug, harness) {
   const { fluid } = debug;
   const canvasLogs = {};
@@ -108,7 +112,7 @@ export function snapshot(debug, harness) {
   harness.traceCursor = renderer.calls.length;
   return {
     shapes: debug.objs.map((o) => plainFields(o, 1)),
-    ey: plainFields(debug.ey, 1),
+    ey: without(plainFields(debug.ey, 1), REMOVED_DEAD_FIELDS.ey),
     reb: plainFields(debug.reb, 1),
     aw: plainFields(debug.aw, 1),
     FL: plainFields(debug.FL, 1),
