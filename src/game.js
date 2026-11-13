@@ -1,24 +1,28 @@
 import * as THREE from "three";
 import { createContext } from "./context.js";
+import { createAudio } from "./audio/audio.js";
+import { BG_VS, BG_FS, VS, FS, BLOB_VS, BLOB_FS, FLUID_VS, FLUID_FS, SPARK_VS, SPARK_FS, EYE_FS } from "./gfx/shaders.js";
+import { createTextures } from "./gfx/textures.js";
+import { chainBeta, dirichlet, jointLimit, solveChain } from "./limbs/chain.js";
 
 export function createGame({ renderer, env }) {
   const { window, document, performance, navigator, setTimeout, clearTimeout, requestAnimationFrame } = env;
   const ctx = createContext();
   Object.assign(ctx, {
-    resize, makeGear, roundedBox, getFracGeo, makeEyes, drawEyes, addObj, removeObj, applySize, updateWO, fillShape, buildCollider, ensureAudio,
-    boing, impact, gravityAt, wallHit, walls, collide, jelly, spin, step, addRing, blast, setRay, pickObj, release, say, hideHint, maxSizeFor,
+    resize, makeGear, roundedBox, getFracGeo, makeEyes, drawEyes, addObj, removeObj, applySize, updateWO, fillShape, buildCollider,
+    impact, gravityAt, wallHit, walls, collide, jelly, spin, step, addRing, blast, setRay, pickObj, release, say, hideHint, maxSizeFor,
     applyTool, fieldValue, showField, syncEditor, applyField, fitRoom, setShape, updatePinTarget, openEditor, closeEditor, createFluid,
     applyFluidLook, fluidInit, buildObstacles, wetness, coupleObjects, gearFluid, fluidFrame, renderFluidField, stirFluid, showFl, refreshSheet,
-    openFluidPanel, closeFluidPanel, setAmount, chainPts, dirichlet, chainBeta, jointLimit, solveChain, defaultBeh, footR, hipXZ, clearLegs,
-    buildLegs, setLegs, startFall, legBrain, orientLegged, stick, updateLegs, updateSparkPx, spark, updateSparks, makeRibbon, setRibbon, tone, chime,
-    zapSound, flash, featherTexture, haloTexture, buildEye, summonEye, releaseVictim, dismissEye, dirFromEye, startStone, endStone, meltAway,
+    openFluidPanel, closeFluidPanel, setAmount, chainPts, defaultBeh, footR, hipXZ, clearLegs,
+    buildLegs, setLegs, startFall, legBrain, orientLegged, stick, updateLegs, updateSparkPx, spark, updateSparks, makeRibbon, setRibbon,
+    flash, buildEye, summonEye, releaseVictim, dismissEye, dirFromEye, startStone, endStone, meltAway,
     popAway, applyPunish, giftShapes, startHug, applyPrize, gearJam, gearOverclock, divineStatus, pickVictim, eyeFinish, eyeFrame, countLegged,
     countRebels, dropCarry, refreshRoles, setHud, makePieceMesh, disposeMesh, planTower, buildPiece, dismantleTower, abortRebellion, startBuild,
     startCelebration, defeatEye, beginBattle, chargeNow, lowestY, updateLevel, hopTo, climbStep, rebelSteer, advanceTower, collideBlocks, rebelFrame,
-    boomSound, textTex, popText, updatePopTexts, mkTex, outfitTextures, stickBetween, buildRig, makeOutfit, clearOutfit, releaseCarry, updateOutfit,
+    popText, updatePopTexts, outfitTextures, stickBetween, buildRig, makeOutfit, clearOutfit, releaseCarry, updateOutfit,
     sketchPath, startIdea, sketchTick, lightbulb, mutter, geniusAI, spawnGenius, retireGenius, cylX, planCannon, buildCannonPart, cannonPop,
     startCannon, cannonBuilder, cannonBuildFrame, ballistic, aimAt, aimAngle, ammoCandidates, endAmmo, releaseAmmo, disposeCannon, loaderAI,
-    spawnIron, fireCannon, cannonFrame, pointerActive, bubbleTex, bubble, updateBubbles, speaker, lullaby, startAwakening, beginNotice, stealButton,
+    spawnIron, fireCannon, cannonFrame, pointerActive, bubble, updateBubbles, speaker, lullaby, startAwakening, beginNotice, stealButton,
     awPillHit, beginWary, awAggress, awSlip, awakeSteer, trackFinger, hurtBoss, startBoss, bossFrame, bossDefeat, peaceEnding, abortAwakening,
     awakeFrame, hitThem, awBlastHurt, awSmash, planCell, dismantleCell, startVillain, rattle, rattleMove, commandZap, villainTap, escapeCell,
     villainFrame, defaultAbeh, clearArms, buildArms, setArms, holdPos, armFor, armReach, armSetMode, armCancel, armCalm, armItemOk, armPickItem,
@@ -26,6 +30,8 @@ export function createGame({ renderer, env }) {
   });
   ctx.env = env;
   ctx.renderer = renderer;
+  const { ensureAudio, boing, tone, chime, zapSound, boomSound } = createAudio(ctx);
+  const { mkTex, textTex, bubbleTex, haloTexture } = createTextures(ctx);
   const canvas = document.getElementById('c');
   ctx.canvas = canvas;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -52,23 +58,8 @@ export function createGame({ renderer, env }) {
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false,
       uniforms: { uTime: timeU },
-      vertexShader: `varying vec3 vD;
-        void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-      fragmentShader: `uniform float uTime; varying vec3 vD;
-        void main(){
-          vec3 d = normalize(vD);
-          float t = uTime * 0.12;
-          float a = d.x*3.0 + sin(d.y*4.0 + t*2.0)*1.2 + t;
-          float b = d.y*3.5 + sin(d.x*3.0 - t*1.5)*1.4;
-          float f = sin(a)*0.5 + sin(b)*0.5 + sin((a+b)*0.7 + t)*0.5;
-          float band = abs(fract(f*1.6) - 0.5);
-          float line = smoothstep(0.43, 0.5, band);
-          vec3 c1 = vec3(0.07,0.03,0.17);
-          vec3 c2 = vec3(0.02,0.18,0.24);
-          vec3 col = mix(c1, c2, f*0.5 + 0.5);
-          col += line * vec3(0.55,0.2,0.6) * 0.4;
-          gl_FragColor = vec4(col,1.0);
-        }`
+      vertexShader: BG_VS,
+      fragmentShader: BG_FS
     })
   );
   scene.add(bg);
@@ -113,60 +104,8 @@ export function createGame({ renderer, env }) {
   resize();
 
   /* ---------- jelly shader ---------- */
-  const VS = `
-    uniform float uTime; uniform vec3 uAxis; uniform float uQ; uniform vec3 uLag; uniform float uRip;
-    uniform vec3 uPressDir; uniform float uPress;
-    varying vec3 vN; varying vec3 vV; varying vec3 vLocal; varying float vRip; varying float vDent;
-    void main(){
-      vec3 p = position;
-      vec3 nrm = normalize(position);
-      float c = max(dot(nrm, uPressDir), 0.0);
-      float w = c * c * c;
-      p -= uPressDir * uPress * 0.26 * w;
-      vec3 side = p - uPressDir * dot(p, uPressDir);
-      p += side * uPress * 0.12 * w;
-      p += uAxis * dot(p, uAxis) * uQ;
-      vec3 perp = p - uAxis * dot(p, uAxis);
-      p -= perp * uQ * 0.5;
-      float l = length(uLag);
-      if (l > 0.0001) {
-        vec3 dl = uLag / l;
-        p += uLag * (0.5 + 0.5 * dot(nrm, dl));
-      }
-      p += normal * uRip * 0.5 * sin(dot(position, vec3(9.0, 11.0, 7.0)) + uTime * 22.0);
-      vec4 mv = modelViewMatrix * vec4(p, 1.0);
-      vec3 nl = normal + (uPressDir - normal * dot(normal, uPressDir)) * uPress * 2.2 * c * c;
-      vN = normalize(normalMatrix * nl);
-      vV = normalize(-mv.xyz);
-      vLocal = position;
-      vRip = uRip;
-      vDent = uPress * w;
-      gl_Position = projectionMatrix * mv;
-    }`;
-  const FS = `
-    uniform float uTime; uniform vec3 uColA; uniform vec3 uColB; uniform float uHue; uniform float uStone; uniform float uSick; uniform float uGold; uniform float uGray;
-    varying vec3 vN; varying vec3 vV; varying vec3 vLocal; varying float vRip; varying float vDent;
-    void main(){
-      vec3 N = normalize(vN); vec3 V = normalize(vV);
-      float fres = pow(1.0 - max(dot(N, V), 0.0), 2.5);
-      float s = sin(vLocal.y*9.0 + sin(vLocal.x*6.0 + uTime*1.5)*1.6 + uHue*6.0)*0.5 + 0.5;
-      float pat = smoothstep(0.42, 0.58, s);
-      vec3 base = mix(uColA, uColB, pat);
-      vec3 L = normalize(vec3(0.4, 0.8, 0.6));
-      float diff = 0.45 + 0.55 * max(dot(N, L), 0.0);
-      vec3 H = normalize(L + V);
-      float spec = pow(max(dot(N, H), 0.0), 48.0);
-      vec3 iri = 0.5 + 0.5 * cos(6.2831 * (fres*1.3 + uTime*0.08 + uHue + vec3(0.0, 0.33, 0.67)));
-      vec3 col = base * diff + iri * fres * 0.85 + spec * 0.9 + vRip * vec3(2.0, 1.2, 1.5);
-      col = mix(col, col * vec3(0.55, 1.15, 0.45) + vec3(0.02, 0.1, 0.0), uSick * 0.65);
-      float lum = dot(col, vec3(0.3, 0.59, 0.11));
-      vec3 stoneCol = vec3(lum * 0.5 + 0.28) * (0.86 + 0.14 * sin(vLocal.x * 31.0 + vLocal.y * 27.0));
-      col = mix(col, stoneCol, uStone);
-      col += uGold * vec3(1.0, 0.78, 0.3) * (fres * 1.1 + 0.12 * (0.5 + 0.5 * sin(uTime * 6.0 + vLocal.y * 12.0)));
-      col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * 0.8, uGray);
-      col *= 1.0 - clamp(vDent, 0.0, 1.4) * 0.35;
-      gl_FragColor = vec4(col, 1.0);
-    }`;
+  
+  
 
   /* ---------- shapes ---------- */
   function makeGear(low) {
@@ -484,29 +423,6 @@ export function createGame({ renderer, env }) {
     }
     o.r = Math.max(R, 0.12);
     updateWO(o);
-  }
-
-  /* ---------- audio ---------- */
-  function ensureAudio() {
-    if (!ctx.actx) { try { ctx.actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { ctx.actx = null; } }
-    if (ctx.actx && ctx.actx.state === 'suspended') ctx.actx.resume();
-  }
-  function boing(base, vol) {
-    if (!ctx.actx || !ctx.soundOn) return;
-    const now = ctx.actx.currentTime;
-    if (now - ctx.lastSnd < 0.035) return;
-    ctx.lastSnd = now;
-    const o = ctx.actx.createOscillator(), g = ctx.actx.createGain(), lfo = ctx.actx.createOscillator(), lg = ctx.actx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(base * 1.5, now);
-    o.frequency.exponentialRampToValueAtTime(base * 0.55, now + 0.35);
-    lfo.frequency.value = 28; lg.gain.value = base * 0.18;
-    lfo.connect(lg); lg.connect(o.frequency);
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.002, Math.min(vol, 0.12)), now + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-    o.connect(g); g.connect(ctx.actx.destination);
-    o.start(now); lfo.start(now); o.stop(now + 0.4); lfo.stop(now + 0.4);
   }
 
   /* ---------- jelly impact ---------- */
@@ -1503,16 +1419,8 @@ function createFluid(N_MAX) {
   blobGeo.setDrawRange(0, 0);
   const blobMat = new THREE.ShaderMaterial({
     uniforms: { uSize: { value: 30 }, uAmp: { value: 0.27 } },
-    vertexShader: `uniform float uSize; attribute float aSpeed; varying float vSpeed;
-      void main(){ vSpeed = aSpeed; gl_PointSize = uSize; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform float uAmp; varying float vSpeed;
-      void main(){
-        vec2 d = gl_PointCoord * 2.0 - 1.0;
-        float r2 = dot(d, d);
-        if (r2 > 1.0) discard;
-        float f = (1.0 - r2); f = f * f * uAmp;
-        gl_FragColor = vec4(f, f * vSpeed, 0.0, 1.0);
-      }`,
+    vertexShader: BLOB_VS,
+    fragmentShader: BLOB_FS,
     blending: THREE.AdditiveBlending, transparent: true, depthTest: false, depthWrite: false
   });
   ctx.blobMat = blobMat;
@@ -1536,35 +1444,8 @@ function createFluid(N_MAX) {
       uOpacity: { value: 0.8 }, uGlow: { value: 0 }, uBox: { value: new THREE.Vector4(0, 0, 1, 1) },
       uThr: { value: 0.24 }, uBump: { value: 3.0 }
     },
-    vertexShader: `varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
-    fragmentShader: `
-      uniform sampler2D uField; uniform vec2 uTexel; uniform float uTime, uOpacity, uGlow, uThr, uBump;
-      uniform vec3 uDeep, uLight; uniform vec4 uBox; varying vec2 vUv;
-      void main(){
-        if (vUv.x < uBox.x || vUv.y < uBox.y || vUv.x > uBox.z || vUv.y > uBox.w) discard;
-        vec4 c = texture2D(uField, vUv);
-        float d = c.r;
-        float edge = smoothstep(uThr - 0.05, uThr + 0.03, d);
-        if (edge < 0.01) discard;
-        vec2 e = uTexel * 2.0;
-        float dx = texture2D(uField, vUv + vec2(e.x, 0.0)).r - texture2D(uField, vUv - vec2(e.x, 0.0)).r;
-        float dy = texture2D(uField, vUv + vec2(0.0, e.y)).r - texture2D(uField, vUv - vec2(0.0, e.y)).r;
-        vec3 N = normalize(vec3(-dx * uBump, -dy * uBump, 1.0));
-        vec3 L = normalize(vec3(-0.4, 0.7, 0.6));
-        float diff = 0.55 + 0.45 * max(dot(N, L), 0.0);
-        vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
-        float spec = pow(max(dot(N, H), 0.0), 40.0);
-        float thick = smoothstep(uThr, 0.9, d);
-        vec3 col = mix(uLight, uDeep, thick) * diff;
-        float rim = 1.0 - smoothstep(uThr, uThr + 0.25, d);
-        col += rim * 0.25 * uLight + spec * 0.7;
-        float speed = c.g / max(c.r, 0.001);
-        col = mix(col, vec3(1.0), smoothstep(0.55, 1.0, speed) * 0.35 * (1.0 - thick * 0.5));
-        float lava = sin(vUv.x * 22.0 + uTime * 1.3) * sin(vUv.y * 17.0 - uTime * 1.1) * 0.5 + 0.5;
-        col += uGlow * mix(uLight, vec3(1.0, 0.85, 0.4), 0.5) * (0.35 + 0.5 * lava) * (0.4 + 0.6 * thick);
-        float alpha = edge * mix(uOpacity * 0.75, uOpacity, thick);
-        gl_FragColor = vec4(col, alpha);
-      }`
+    vertexShader: FLUID_VS,
+    fragmentShader: FLUID_FS
   });
   ctx.fluidMat = fluidMat;
   const fluidQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fluidMat);
@@ -1836,39 +1717,7 @@ function createFluid(N_MAX) {
         qC = new THREE.Quaternion(), qT = new THREE.Quaternion();
 
   const chainPool = [];
-  const cD = new THREE.Vector3(), cB = new THREE.Vector3();
   function chainPts(n) { while (chainPool.length < n + 1) chainPool.push(new THREE.Vector3()); return chainPool; }
-  function dirichlet(n, b) { return Math.sin(n * b / 2) / Math.sin(b / 2); }
-  function chainBeta(r, n) { // bend per joint so that n equal segments span r segment-lengths
-    if (r >= n - 1e-4) return 0;
-    let lo = 1e-4, hi = 2 * Math.PI / n * 0.999;
-    for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (dirichlet(n, mid) > r) lo = mid; else hi = mid; }
-    return (lo + hi) / 2;
-  }
-  function jointLimit(o, n) { return Math.min(0.2 + o.jflex * 2.6, (2 * Math.PI / n) * 0.97); }
-  // n equal rigid segments from S toward E. The chain bends toward `bias` (knees forward, elbows back),
-  // never more than thetaMax per joint, so a too-close target is pushed out to the shortest allowed reach.
-  function solveChain(S, E, n, total, thetaMax, bias, pts) {
-    const c = total / n;
-    cD.copy(E).sub(S);
-    let d = cD.length();
-    if (d < 1e-6) cD.set(0, -1, 0); else cD.multiplyScalar(1 / d);
-    const dmin = c * dirichlet(n, thetaMax), dmax = total * 0.9999;
-    d = Math.min(Math.max(d, dmin), dmax);
-    cB.copy(bias).addScaledVector(cD, -bias.dot(cD));
-    if (cB.lengthSq() < 1e-6) cB.set(0, 0, 1).addScaledVector(cD, -cD.z);
-    if (cB.lengthSq() < 1e-6) cB.set(1, 0, 0);
-    cB.normalize();
-    const beta = chainBeta(d / c, n);
-    pts[0].copy(S);
-    if (beta < 1e-4) { for (let k = 1; k <= n; k++) pts[k].copy(S).addScaledVector(cD, c * k); pts[n].copy(S).addScaledVector(cD, d); return pts; }
-    const R = c / (2 * Math.sin(beta / 2)), half = n * beta / 2, ch = Math.cos(half);
-    for (let k = 1; k <= n; k++) {
-      const a = -half + k * beta;
-      pts[k].copy(S).addScaledVector(cD, R * Math.sin(a) + d / 2).addScaledVector(cB, R * (Math.cos(a) - ch));
-    }
-    return pts;
-  }
   function defaultBeh() { return { wander: true, follow: false, flee: false, chase: false, seek: false, avoid: false }; }
   function footR(o) { return 0.09 * o.size * o.footScale; }
   function hipXZ(o, i) {
@@ -2118,18 +1967,8 @@ function createFluid(N_MAX) {
   spGeo.setAttribute('aSize', new THREE.BufferAttribute(spSize, 1));
   const spMat = new THREE.ShaderMaterial({
     uniforms: { uPx: { value: 200 } },
-    vertexShader: `uniform float uPx; attribute vec3 aColor; attribute float aAlpha; attribute float aSize; varying vec3 vC; varying float vA;
-      void main(){ vC = aColor; vA = aAlpha; gl_PointSize = min(aSize * uPx, 60.0); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `varying vec3 vC; varying float vA;
-      void main(){
-        vec2 d = gl_PointCoord * 2.0 - 1.0;
-        float r = length(d);
-        if (r > 1.0) discard;
-        float core = pow(1.0 - r, 2.0);
-        float cr = smoothstep(0.14, 0.0, min(abs(d.x), abs(d.y))) * (1.0 - r);
-        float a = (core * 0.9 + cr) * vA;
-        gl_FragColor = vec4(vC * a, a);
-      }`,
+    vertexShader: SPARK_VS,
+    fragmentShader: SPARK_FS,
     blending: THREE.AdditiveBlending, transparent: true, depthTest: false, depthWrite: false
   });
   ctx.spMat = spMat;
@@ -2193,25 +2032,6 @@ function createFluid(N_MAX) {
   ctx.omenRing = omenRing;
   omenRing.visible = false; omenRing.renderOrder = 5; scene.add(omenRing);
 
-  // sounds
-  function tone(freq, dur, vol, type, slide) {
-    if (!ctx.actx || !ctx.soundOn) return;
-    const now = ctx.actx.currentTime, o = ctx.actx.createOscillator(), g = ctx.actx.createGain();
-    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, now);
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, freq * slide), now + dur);
-    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol, now + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    o.connect(g); g.connect(ctx.actx.destination); o.start(now); o.stop(now + dur + 0.05);
-  }
-  function chime(notes, gap, vol) { notes.forEach((fq, i) => setTimeout(() => tone(fq, 1.0, vol, 'sine'), i * gap)); }
-  function zapSound() {
-    if (!ctx.actx || !ctx.soundOn) return;
-    const dur = 0.35, len = Math.floor(ctx.actx.sampleRate * dur), buf = ctx.actx.createBuffer(1, len, ctx.actx.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
-    const src = ctx.actx.createBufferSource(), hp = ctx.actx.createBiquadFilter(), g = ctx.actx.createGain();
-    src.buffer = buf; hp.type = 'highpass'; hp.frequency.value = 1200; g.gain.value = 0.12;
-    src.connect(hp); hp.connect(g); g.connect(ctx.actx.destination); src.start();
-    tone(90, 0.5, 0.12, 'sawtooth', 0.4);
-  }
   const flashEl = document.getElementById('flash');
   function flash(color, a) {
     flashEl.style.transition = 'none'; flashEl.style.background = color; flashEl.style.opacity = String(a);
@@ -2227,62 +2047,6 @@ function createFluid(N_MAX) {
     hp: 1, battleMode: false, allyMode: false, atkT: 0, aim: 0, zapT: 0, zapTarget: null, defT: 0, dead: false
   };
   ctx.ey = ey;
-  function featherTexture() {
-    const c = document.createElement('canvas'); c.width = 64; c.height = 192;
-    const g = c.getContext('2d');
-    const grad = g.createLinearGradient(0, 192, 0, 0);
-    grad.addColorStop(0, 'rgba(255,255,255,0.98)'); grad.addColorStop(0.7, 'rgba(244,248,255,0.95)'); grad.addColorStop(1, 'rgba(222,234,255,0.0)');
-    g.fillStyle = grad;
-    g.beginPath(); g.moveTo(32, 190); g.bezierCurveTo(2, 150, 4, 60, 32, 2); g.bezierCurveTo(60, 60, 62, 150, 32, 190); g.fill();
-    g.strokeStyle = 'rgba(200,214,240,0.35)'; g.lineWidth = 1;
-    for (let i = 0; i < 24; i++) {
-      const y = 184 - i * 7, w = 24 - i * 0.7;
-      g.beginPath(); g.moveTo(32, y); g.lineTo(32 - w, y - 15); g.moveTo(32, y); g.lineTo(32 + w, y - 15); g.stroke();
-    }
-    g.strokeStyle = 'rgba(190,205,235,0.65)'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(32, 190); g.lineTo(32, 12); g.stroke();
-    return new THREE.CanvasTexture(c);
-  }
-  function haloTexture() {
-    const c = document.createElement('canvas'); c.width = 128; c.height = 128;
-    const g = c.getContext('2d');
-    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    grad.addColorStop(0, 'rgba(255,246,220,0.9)'); grad.addColorStop(0.35, 'rgba(255,232,175,0.35)'); grad.addColorStop(1, 'rgba(255,222,150,0)');
-    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
-    return new THREE.CanvasTexture(c);
-  }
-  const EYE_FS = `
-    uniform float uTime, uPupil, uSlit, uGlow, uOpacity; uniform vec3 uIris;
-    varying vec3 vN; varying vec3 vV; varying vec3 vLocal; varying float vRip; varying float vDent;
-    void main(){
-      vec3 N = normalize(vN); vec3 V = normalize(vV);
-      vec3 p = normalize(vLocal);
-      vec2 q = p.xy;
-      float r = length(q);
-      float front = step(0.0, p.z);
-      float az = atan(q.y, q.x);
-      vec3 sclera = vec3(0.97, 0.95, 1.0);
-      float vein = smoothstep(0.9, 1.0, sin(az * 9.0 + sin(r * 8.0 + uTime * 0.2) * 2.0)) * smoothstep(0.55, 1.0, r);
-      sclera -= vec3(0.0, 0.10, 0.09) * vein * 0.7;
-      float irisR = 0.56;
-      float t = r / irisR;
-      float streak = 0.5 + 0.5 * sin(az * 26.0 + sin(az * 5.0 + uTime * 0.4) * 2.0);
-      vec3 irisCol = mix(uIris * 1.3, uIris * 0.45, smoothstep(0.15, 1.0, t)) * (0.7 + 0.4 * streak);
-      irisCol = mix(irisCol, vec3(1.0, 0.85, 0.45), smoothstep(0.55, 0.25, t) * 0.45);
-      irisCol *= 1.0 - smoothstep(0.82, 1.0, t) * 0.7;
-      float irisM = (1.0 - smoothstep(irisR - 0.02, irisR, r)) * front;
-      vec3 col = mix(sclera, irisCol, irisM);
-      vec2 pq = vec2(q.x * (1.0 + uSlit * 3.5), q.y);
-      float pupM = (1.0 - smoothstep(uPupil - 0.015, uPupil, length(pq))) * front;
-      col = mix(col, vec3(0.02, 0.01, 0.05), pupM);
-      col += smoothstep(0.1, 0.0, length(q - vec2(0.2, 0.24))) * front * 0.9;
-      vec3 L = normalize(vec3(0.3, 0.6, 0.8));
-      col *= 0.72 + 0.28 * max(dot(N, L), 0.0);
-      float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-      col += fres * (0.35 + uGlow) * vec3(1.0, 0.93, 0.8);
-      col += vRip * vec3(1.0);
-      gl_FragColor = vec4(col, uOpacity);
-    }`;
   const EY_ROWS = [[7, 2.0, 0.62, 78, -8], [6, 1.4, 0.56, 62, -30], [5, 0.8, 0.46, 46, -52]];
   function buildEye() {
     const g = new THREE.Group();
@@ -3174,28 +2938,7 @@ function createFluid(N_MAX) {
   }
 
   /* ---------- the genius wobbler and the cannon uprising ---------- */
-  function boomSound(v) {
-    if (!ctx.actx || !ctx.soundOn) return;
-    const dur = 0.5, len = Math.floor(ctx.actx.sampleRate * dur), buf = ctx.actx.createBuffer(1, len, ctx.actx.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
-    const src = ctx.actx.createBufferSource(), lp = ctx.actx.createBiquadFilter(), g = ctx.actx.createGain();
-    src.buffer = buf; lp.type = 'lowpass'; lp.frequency.value = 700; g.gain.value = 0.35 * (v || 1);
-    src.connect(lp); lp.connect(g); g.connect(ctx.actx.destination); src.start();
-    tone(70, 0.5, 0.18 * (v || 1), 'sawtooth', 0.35);
-  }
-
   // floating comic text
-  const textTexCache = {};
-  function textTex(txt, color) {
-    const key = txt + color;
-    if (textTexCache[key]) return textTexCache[key];
-    const c = document.createElement('canvas'); c.width = 256; c.height = 96;
-    const g = c.getContext('2d');
-    g.font = 'bold 54px ui-rounded, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineWidth = 10; g.lineJoin = 'round'; g.strokeStyle = '#12082b'; g.strokeText(txt, 128, 50);
-    g.fillStyle = color; g.fillText(txt, 128, 50);
-    return (textTexCache[key] = new THREE.CanvasTexture(c));
-  }
   const popTexts = [];
   ctx.popTexts = popTexts;
   function popText(x, y, txt, color, life, size) {
@@ -3214,12 +2957,6 @@ function createFluid(N_MAX) {
     }
   }
 
-  // outfit sprites for the genius
-  function mkTex(w, h, draw) {
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    draw(c.getContext('2d'));
-    return new THREE.CanvasTexture(c);
-  }
   function outfitTextures() {
     if (ctx.outfitTex) return ctx.outfitTex;
     const ink = '#12082b';
@@ -3750,26 +3487,6 @@ function createFluid(N_MAX) {
   function pointerActive() { return pointers.size > 0 || (ctx.clockNow - ctx.pointerT) < 1.5; }
 
   // speech bubbles
-  const bubTexCache = {};
-  function bubbleTex(text) {
-    if (bubTexCache[text]) return bubTexCache[text];
-    const words = text.split(' '), lines = []; let cur = '';
-    for (const w of words) { if ((cur + ' ' + w).trim().length > 15) { lines.push(cur); cur = w; } else cur = (cur + ' ' + w).trim(); }
-    if (cur) lines.push(cur);
-    const longest = Math.max(...lines.map(l => l.length)), W = clamp(longest * 17 + 44, 120, 330), H = 36 + lines.length * 34 + 22;
-    const c = document.createElement('canvas'); c.width = 340; c.height = 150;
-    const g = c.getContext('2d'), x0 = (340 - W) / 2, y0 = 6, bh = H - 22;
-    g.fillStyle = '#fff0fa'; g.strokeStyle = '#12082b'; g.lineWidth = 5; g.lineJoin = 'round';
-    g.beginPath();
-    g.moveTo(x0 + 16, y0); g.lineTo(x0 + W - 16, y0); g.quadraticCurveTo(x0 + W, y0, x0 + W, y0 + 16);
-    g.lineTo(x0 + W, y0 + bh - 16); g.quadraticCurveTo(x0 + W, y0 + bh, x0 + W - 16, y0 + bh);
-    g.lineTo(190, y0 + bh); g.lineTo(170, y0 + bh + 20); g.lineTo(150, y0 + bh);
-    g.lineTo(x0 + 16, y0 + bh); g.quadraticCurveTo(x0, y0 + bh, x0, y0 + bh - 16);
-    g.lineTo(x0, y0 + 16); g.quadraticCurveTo(x0, y0, x0 + 16, y0); g.closePath(); g.fill(); g.stroke();
-    g.font = 'bold 28px ui-rounded, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#4a2670';
-    lines.forEach((l, i) => g.fillText(l, 170, y0 + 28 + i * 32));
-    return (bubTexCache[text] = new THREE.CanvasTexture(c));
-  }
   const bubbles = [];
   ctx.bubbles = bubbles;
   function bubble(o, text, life) {
