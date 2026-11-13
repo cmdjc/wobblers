@@ -6,6 +6,8 @@ import { createTextures } from "./gfx/textures.js";
 import { CAM_Z, TAN, createBackground } from "./gfx/background.js";
 import { createFx } from "./gfx/fx.js";
 import { createHud } from "./ui/hud.js";
+import { createToolbar } from "./ui/toolbar.js";
+import { createPointer } from "./input/pointer.js";
 import { chainBeta, dirichlet, jointLimit, solveChain } from "./limbs/chain.js";
 import { createFluid } from "./fluid/solver.js";
 import { AUTO_SHAPES, GEAR, SHAPES, createShapes } from "./shapes/shapes.js";
@@ -19,8 +21,7 @@ export function createGame({ renderer, env }) {
   const { window, document, performance, navigator, setTimeout, clearTimeout, requestAnimationFrame } = env;
   const ctx = createContext();
   Object.assign(ctx, {
-    setRay, pickObj, release, maxSizeFor,
-    applyTool, fieldValue, showField, syncEditor, applyField, fitRoom, setShape, updatePinTarget, openEditor, closeEditor,
+    fieldValue, showField, syncEditor, applyField, fitRoom, setShape, updatePinTarget, openEditor, closeEditor,
     applyFluidLook, fluidInit, buildObstacles, wetness, coupleObjects, gearFluid, fluidFrame, renderFluidField, stirFluid, showFl, refreshSheet,
     openFluidPanel, closeFluidPanel, setAmount, chainPts, defaultBeh, footR, hipXZ, clearLegs,
     buildLegs, setLegs, startFall, legBrain, orientLegged, stick, updateLegs, makeRibbon, setRibbon,
@@ -54,7 +55,7 @@ export function createGame({ renderer, env }) {
 
   /* ---------- scratch ---------- */
   const tmpG = new THREE.Vector3(), tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(),
-        tmpP = new THREE.Vector3(), qInv = new THREE.Quaternion();
+        qInv = new THREE.Quaternion();
   ctx.tmpG = tmpG; ctx.tmpV = tmpV; ctx.tmpV2 = tmpV2; ctx.qInv = qInv;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -72,226 +73,11 @@ export function createGame({ renderer, env }) {
   const { impact, gravityAt, step } = createPhysics(ctx);
 
   /* ---------- pointer input ---------- */
-  const ray = new THREE.Raycaster();
-  ctx.ray = ray;
-  const ndc = new THREE.Vector2();
-  const sph = new THREE.Sphere(new THREE.Vector3(), 1);
-  const pointers = new Map();
-  ctx.pointers = pointers;
-  const look = { x: 0, y: 0, last: -99 };
-  ctx.look = look;
-
-  function setRay(e) {
-    const r = canvas.getBoundingClientRect();
-    ndc.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height * 2 - 1));
-    ray.setFromCamera(ndc, camera);
-    look.x = ndc.x; look.y = ndc.y; look.last = ctx.clockNow;
-    if (ray.ray.intersectPlane(plane0, pointerW)) ctx.pointerT = ctx.clockNow;
-  }
-  const pickHit = new THREE.Vector3();
-  ctx.pickHit = pickHit;
-  function pickObj() {
-    let best = null, bd = 1e9;
-    for (const o of objs) {
-      if (o.dragged || o.dying) continue;
-      for (let k = 0; k < o.cn; k++) {
-        sph.center.set(o.pos.x + o.wo[3 * k], o.pos.y + o.wo[3 * k + 1], o.pos.z + o.wo[3 * k + 2]);
-        sph.radius = o.cRad[k] * 1.2 + 0.06;
-        if (ray.ray.intersectSphere(sph, tmpP)) {
-          const d = tmpP.distanceTo(ray.ray.origin);
-          if (d < bd) { bd = d; best = o; pickHit.copy(tmpP); }
-        }
-      }
-    }
-    return best;
-  }
-
-  canvas.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    ensureAudio(); hideHint();
-    // eslint-disable-next-line no-empty
-    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-    setRay(e);
-    const o = pickObj();
-    if (aw.lockT > 0) { pointers.set(e.pointerId, { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 999 }); return; }
-    if (aw.state === 'wary' && awPillHit(e)) { pointers.set(e.pointerId, { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 999 }); startBoss('pill'); return; }
-    if (aw.state === 'capture') { pointers.set(e.pointerId, { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 999 }); return; }
-    if (o && aw.state === 'boss') { awSmash(o); pointers.set(e.pointerId, { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 999 }); return; }
-    if (o && aw.state === 'villain') { villainTap(o); pointers.set(e.pointerId, { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 999 }); return; }
-    if (o && (aw.state === 'notice' || aw.state === 'wary' || aw.state === 'boss' || aw.state === 'defeat')) {
-      awSlip(o); pointers.set(e.pointerId, { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 999 }); return;
-    }
-    const rec = { o: null, t0: performance.now(), x0: e.clientX, y0: e.clientY, moved: 0 };
-    if (o) {
-      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -o.pos.z);
-      const hit = new THREE.Vector3();
-      if (ray.ray.intersectPlane(plane, hit)) {
-        rec.o = o; rec.plane = plane;
-        rec.off = o.pos.clone().sub(hit);
-        rec.target = o.pos.clone();
-        o.dragged = true; o.drag = rec; o.moodT = 0;
-        tmpV.copy(pickHit).sub(o.pos);
-        if (tmpV.lengthSq() < 1e-6) tmpV.set(0, 0, 1);
-        o.pressWorld.copy(tmpV).normalize(); o.holdT = 0;
-      }
-    }
-    if (rec.o) rec.timer = setTimeout(() => {
-      if (pointers.get(e.pointerId) === rec && rec.o && rec.moved < 10) {
-        const ob = rec.o;
-        rec.o = null; rec.moved = 999;
-        ob.dragged = false; ob.drag = null;
-        openEditor(ob);
-      }
-    }, 480);
-    pointers.set(e.pointerId, rec);
-  });
-  canvas.addEventListener('pointermove', e => {
-    e.preventDefault();
-    const rec = pointers.get(e.pointerId);
-    setRay(e);
-    if (!rec) return;
-    rec.moved = Math.max(rec.moved, Math.hypot(e.clientX - rec.x0, e.clientY - rec.y0));
-    if (rec.o) {
-      const hit = new THREE.Vector3();
-      if (ray.ray.intersectPlane(rec.plane, hit)) rec.target.copy(hit).add(rec.off);
-    } else if (aw.state === 'villain' && rec.moved > 6) rattleMove(e, rec);
-    else if (fluid.n > 0 && rec.moved > 5) stirFluid(rec);
-  });
-  function release(e, cancelled) {
-    const rec = pointers.get(e.pointerId);
-    if (!rec) return;
-    pointers.delete(e.pointerId);
-    clearTimeout(rec.timer);
-    const quick = !cancelled && (performance.now() - rec.t0) < 260 && rec.moved < 12;
-    const o = rec.o;
-    if (o) {
-      o.dragged = false; o.drag = null;
-      if (quick && ctx.tool !== 'play') {
-        applyTool(o);
-      } else if (quick) {
-        tmpV.copy(rec.off); tmpV.z = 0;
-        if (tmpV.length() < 0.04) tmpV.set((Math.random() - 0.5) * 0.4, 1, 0);
-        tmpV.normalize();
-        o.vel.copy(tmpV).multiplyScalar(5.5 / Math.sqrt(o.density));
-        o.vel.y += 3.5; o.vel.z += (Math.random() - 0.5) * 2;
-        o.ang.x += (Math.random() - 0.5) * 9; o.ang.y += (Math.random() - 0.5) * 9; o.ang.z += (Math.random() - 0.5) * 9;
-        impact(o, tmpV, 9);
-        o.rip = 0.12; o.moodT = 1.2;
-        boing(300 * o.pitch, 0.1);
-        if (navigator.vibrate) navigator.vibrate(12);
-      } else {
-        o.vel.multiplyScalar(1.15);
-        const sp = o.vel.length();
-        if (sp > 35) o.vel.multiplyScalar(35 / sp);
-        o.ang.x += -o.vel.y * 0.12; o.ang.y += o.vel.x * 0.12;
-        o.ang.z += (Math.random() - 0.5) * sp * 0.15;
-        if (sp > 6) boing(200 * o.pitch, 0.05);
-      }
-    } else if (quick && ctx.tool === 'play') {
-      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-      const hit = new THREE.Vector3();
-      if (ray.ray.intersectPlane(plane, hit)) { blast(hit); if (aw.state === 'wary') awAggress(0.06); }
-    }
-  }
-  canvas.addEventListener('pointerup', e => { e.preventDefault(); release(e, false); });
-  canvas.addEventListener('pointercancel', e => release(e, true));
-  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  const { ray, pointers, look } = createPointer(ctx);
 
   /* ---------- UI ---------- */
   const { say, hideHint } = createHud(ctx);
-  const GN = ['down', 'up', 'drifting', 'pulled to the middle', 'spinning'];
-  const gravBtn = document.getElementById('grav');
-  ctx.gravBtn = gravBtn;
-  gravBtn.addEventListener('click', () => {
-    ensureAudio(); hideHint();
-    ctx.gMode = (ctx.gMode + 1) % GN.length;
-    gravBtn.textContent = 'Gravity: ' + ['down', 'up', 'drift', 'center', 'spin'][ctx.gMode];
-    say('Gravity is ' + GN[ctx.gMode], 1300);
-    for (const o of objs) { o.vel.x += (Math.random() - 0.5) * 2; impact(o, tmpV.set(0, 1, 0), 4); }
-  });
-  document.getElementById('add').addEventListener('click', () => {
-    ensureAudio(); hideHint();
-    if (objs.length >= MAX_OBJS) {
-      const old = objs.find(o => !o.dragged && !o.dying);
-      if (old) removeObj(old);
-    }
-    const o = addObj(ctx.nextShape++ % SHAPES.length, (Math.random() - 0.5) * ctx.hx, ctx.yMax - 1);
-    o.vel.set((Math.random() - 0.5) * 5, -2, 0);
-    o.moodT = 0.9;
-    boing(330 * o.pitch, 0.08);
-  });
-  const sndBtn = document.getElementById('snd');
-  sndBtn.addEventListener('click', () => {
-    ensureAudio();
-    ctx.soundOn = !ctx.soundOn;
-    sndBtn.textContent = ctx.soundOn ? 'Sound on' : 'Sound off';
-    if (ctx.soundOn) boing(300, 0.08);
-  });
-
-  document.getElementById('clr').addEventListener('click', () => {
-    ensureAudio(); hideHint(); closeEditor(); abortRebellion(); abortAwakening();
-    const live = objs.filter(o => !o.dying);
-    if (!live.length) { say('Nothing to clear', 1000); return; }
-    pointers.forEach(r => { r.o = null; r.moved = 999; });
-    live.forEach((o, i) => {
-      o.dragged = false; o.drag = null;
-      o.dying = true; o.dieT = -i * 0.05; o.moodT = 1;
-      addRing(o.pos, 0xffe14d, 1.8);
-      setTimeout(() => boing(420 + i * 55, 0.07), i * 55);
-    });
-    if (navigator.vibrate) navigator.vibrate(25);
-    say('All gone', 1100);
-  });
-
-  /* ---------- tools ---------- */
-  const TOOL_HINT = {
-    play: 'Poke and blast',
-    grow: 'Tap a shape to grow it',
-    shrink: 'Tap a shape to shrink it',
-    wobble: 'Tap a shape to change its wobble, down to rigid',
-    remove: 'Tap a shape to pop it'
-  };
-  const toolBtns = document.querySelectorAll('.tools button');
-  toolBtns.forEach(b => b.addEventListener('click', () => {
-    ensureAudio(); hideHint();
-    ctx.tool = b.dataset.tool;
-    toolBtns.forEach(x => x.classList.toggle('on', x === b));
-    say(TOOL_HINT[ctx.tool], 1500);
-  }));
-  function maxSizeFor(o) {
-    const rb = (o.rBody || o.r) / o.size;                       // body radius at size 1
-    const lateral = 0.95 * Math.min(ctx.hx, ctx.hz) / rb;
-    const vertical = 0.95 * (ctx.yMax - ctx.yMin) / (2 * rb + (o.legs > 0 ? o.legLen : 0)); // body plus legs must fit floor to ceiling
-    return Math.min(5.0, lateral, vertical);
-  }
-  function applyTool(o) {
-    const dir = tmpV.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-    if (ctx.tool === 'grow' || ctx.tool === 'shrink') {
-      const grow = ctx.tool === 'grow';
-      const nt = grow ? Math.min(maxSizeFor(o), o.sizeT * 1.3) : Math.max(0.35, o.sizeT / 1.3);
-      if (Math.abs(nt - o.sizeT) < 0.01) {
-        say(grow ? 'Biggest it can get' : 'Smallest it can get', 900);
-        impact(o, dir, 3);
-        return;
-      }
-      o.sizeT = nt;
-      o.qv += grow ? 16 : -16;
-      o.rip = 0.1; o.moodT = 0.8;
-      boing((grow ? 200 : 520) * o.shapePitch / nt, 0.09);
-    } else if (ctx.tool === 'wobble') {
-      o.wob = o.wob >= 4 ? -1 : Math.floor(o.wob) + 1;
-      impact(o, dir, 10 + o.wob * 2);
-      o.moodT = 0.9;
-      say(o.wob < 0 ? 'Rigid' : (o.wob ? 'Wobble ' + o.wob + ' of 4' : 'Wobble off'), 900);
-      boing(260 * o.pitch, 0.09);
-    } else if (ctx.tool === 'remove') {
-      if (ctx.sel === o) closeEditor();
-      o.dying = true; o.dieT = 0; o.moodT = 1;
-      addRing(o.pos, 0xffe14d, 1.8);
-      boing(700, 0.1);
-      if (navigator.vibrate) navigator.vibrate(15);
-    }
-  }
+  const { maxSizeFor, gravBtn } = createToolbar(ctx);
 
   /* ---------- editor ---------- */
   const ed = document.getElementById('editor');
