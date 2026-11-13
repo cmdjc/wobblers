@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint .",
+    "e2e": "vite build && vitest run --config tests/e2e/vitest.config.js",
     "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {

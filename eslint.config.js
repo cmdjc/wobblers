@@ -6,6 +6,7 @@ export default [
   js.configs.recommended,
   { files: ["src/**/*.js"], languageOptions: { globals: globals.browser } },
   { files: ["tests/**/*.js", "*.config.js"], languageOptions: { globals: globals.node } },
+  { files: ["tests/e2e/injected.js"], languageOptions: { globals: globals.browser } },
   // TODO: remove in task 18
   { files: ["src/game.js"], rules: { "no-unused-vars": "off" } },
 ];
