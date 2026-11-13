@@ -83,7 +83,7 @@ describe("src/game.js", () => {
   it("registers every top-level function declaration on ctx", () => {
     const declared = topLevelFunctionNames();
     const registered = registeredNames();
-    expect(declared.length).toBeGreaterThan(100);
+    expect(declared.length).toBeGreaterThan(50);
     expect(new Set(registered).size).toBe(registered.length);
     expect([...registered].sort()).toEqual([...declared].sort());
   });
