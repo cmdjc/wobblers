@@ -18,6 +18,7 @@ import { createFluidCoupling } from "./fluid/coupling.js";
 import { AUTO_SHAPES, GEAR, SHAPES, createShapes } from "./shapes/shapes.js";
 import { createColliders } from "./shapes/colliders.js";
 import { createEye } from "./eye/eye.js";
+import { createVerdicts } from "./eye/verdicts.js";
 import { createEyes } from "./world/eyes.js";
 import { MAX_OBJS, createObjects } from "./world/objects.js";
 import { createPhysics } from "./world/physics.js";
@@ -99,7 +100,8 @@ export function createGame({ renderer, env }) {
 
   /* ---------- the Eye: a divine floating eye ---------- */
   const { rings, addRing, updateRings, blast, updateSparkPx, spark, updateSparks, flash, popText, updatePopTexts, bubble, updateBubbles, bubbles } = createFx(ctx);
-  const { ey, eyeBtn, summonEye, releaseVictim, endStone, applyPunish, applyPrize, divineStatus, eyeFrame } = createEye(ctx);
+  const { ey, eyeBtn, summonEye, releaseVictim, eyeFrame } = createEye(ctx);
+  const { endStone, applyPunish, applyPrize, divineStatus } = createVerdicts(ctx);
 
   /* ---------- the uprising: legged wobblers build a tower, climb it, and fight the eye ---------- */
   const PP = 3, REBEL_AT = 3;
