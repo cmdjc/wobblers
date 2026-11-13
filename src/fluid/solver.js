@@ -88,9 +88,9 @@ export function createFluid(N_MAX) {
         dx = qx[i] - sx; dy = qy[i] - sy;
         const d2 = dx * dx + dy * dy;
         if (d2 >= rr * rr) continue;
-        let d = Math.sqrt(d2), nx, ny;
-        // eslint-disable-next-line no-useless-assignment
-        if (d < 1e-6) { nx = 0; ny = 1; d = 0; } else { nx = dx / d; ny = dy / d; }
+        const d = Math.sqrt(d2);
+        let nx, ny;
+        if (d < 1e-6) { nx = 0; ny = 1; } else { nx = dx / d; ny = dy / d; }
         qx[i] = sx + nx * rr; qy[i] = sy + ny * rr;
         hit[i] = 1; hnx[i] = nx; hny[i] = ny; hvx[i] = oB[5 * o + 3]; hvy[i] = oB[5 * o + 4];
       }

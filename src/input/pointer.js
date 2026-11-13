@@ -12,6 +12,7 @@ export function createPointer(ctx) {
   const pointers = new Map();
   ctx.pointers = pointers;
   const look = { x: 0, y: 0, last: -99 };
+  ctx.look = look;
 
   function setRay(e) {
     const r = canvas.getBoundingClientRect();
@@ -42,7 +43,6 @@ export function createPointer(ctx) {
     const { aw } = ctx;
     e.preventDefault();
     ctx.ensureAudio(); ctx.hideHint();
-    // eslint-disable-next-line no-empty
     try { canvas.setPointerCapture(e.pointerId); } catch {}
     setRay(e);
     const o = pickObj();

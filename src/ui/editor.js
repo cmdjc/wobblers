@@ -17,6 +17,7 @@ export function createEditor(ctx) {
   );
   selRing.visible = false; selRing.renderOrder = 5;
   scene.add(selRing);
+  ctx.selRing = selRing;
 
   const BEHS = [['wander', 'Wander'], ['follow', 'Follow finger'], ['flee', 'Flee finger'], ['chase', 'Chase others'], ['seek', 'Seek liquid'], ['avoid', 'Avoid liquid']];
   const behBtns = [], abehBtns = [];

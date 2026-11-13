@@ -24,27 +24,10 @@ const MOVED = {
   time: 0,
 };
 
-const topLevelFunctionNames = () => {
-  const names = [];
-  for (let i = 0; i < gameLines.length; i++) {
-    if (gameLines[i].startsWith("function createFluid(")) {
-      names.push("createFluid");
-      while (gameLines[i] !== "}") i++;
-      continue;
-    }
-    const match = gameLines[i].match(/^ {2}(?:async )?function (\w+)\(/);
-    if (match) names.push(match[1]);
-  }
-  return names;
-};
-
-const registeredNames = () => {
-  const start = gameLines.indexOf("  Object.assign(ctx, {");
-  const end = gameLines.indexOf("  });", start);
-  expect(start).toBeGreaterThan(-1);
-  expect(end).toBeGreaterThan(start);
-  return gameLines.slice(start + 1, end).join(" ").split(",").map((name) => name.trim()).filter(Boolean);
-};
+const declaredFunctionNames = () => gameLines.flatMap((line) => {
+  const match = line.match(/^\s*(?:export )?(?:async )?function (\w+)\(/);
+  return match ? [match[1]] : [];
+});
 
 describe("createContext", () => {
   it("returns the legacy initial values", () => {
@@ -80,12 +63,12 @@ describe("src/game.js", () => {
     expect(clash).toEqual([]);
   });
 
-  it("registers every top-level function declaration on ctx", () => {
-    const declared = topLevelFunctionNames();
-    const registered = registeredNames();
-    expect(declared.length).toBeGreaterThan(0);
-    expect(new Set(registered).size).toBe(registered.length);
-    expect([...registered].sort()).toEqual([...declared].sort());
+  it("declares no function besides createGame and the frame loop", () => {
+    expect(declaredFunctionNames()).toEqual(["createGame", "frame"]);
+  });
+
+  it("registers nothing on ctx by hand", () => {
+    expect(gameLines.filter((line) => line.includes("Object.assign(ctx"))).toEqual([]);
   });
 
   it("runs twice in one process with identical results", async () => {
