@@ -1,0 +1,13 @@
+{
+  "name": "wobblers",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wobblers: a surreal, phone-first 3D toy/story game of jiggly shapes. See handoff.md.",
+  "scripts": {
+    "test": "node tests/smoke.cjs",
+    "serve": "python3 -m http.server 8080 --directory reference"
+  },
+  "devDependencies": {
+    "three": "0.128.0"
+  }
+}
