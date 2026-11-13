@@ -143,7 +143,7 @@ export function createFx(ctx) {
     addRing, updateRings, blast, updateSparkPx, spark, updateSparks, flash, popText, updatePopTexts, bubble, updateBubbles,
   };
   Object.assign(ctx, {
-    addRing, updateRings, blast, updateSparkPx, spark, updateSparks, flash, popText, updatePopTexts, bubble, updateBubbles,
+    bubbles, addRing, updateRings, blast, updateSparkPx, spark, updateSparks, flash, popText, updatePopTexts, bubble, updateBubbles,
   });
   return api;
 }

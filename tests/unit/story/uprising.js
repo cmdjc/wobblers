@@ -14,7 +14,7 @@ export function until(game, label, predicate, maxSeconds, each = null) {
   expect(predicate(), `${label} within ${maxSeconds} s`).toBe(true);
 }
 
-function giveLegs(game, o) {
+export function giveLegs(game, o) {
   longPress(game, o);
   expect(game.debug.sel).toBe(o);
   setSlider(game, sliderFor(game, "Legs"), 3);

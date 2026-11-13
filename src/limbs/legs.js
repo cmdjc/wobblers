@@ -21,7 +21,7 @@ export function hipXZ(o, i) {
 
 export function createLegs(ctx) {
   const { scene, objs, tmpG, tmpV, pointerW, pointers, fluid, smp } = ctx;
-  const { applySize, impact, boing, gravityAt, buildCollider, awakeSteer } = ctx;
+  const { applySize, impact, boing, gravityAt, buildCollider } = ctx;
   const legCyl = new THREE.CylinderGeometry(1, 1, 1, 8, 1), legBall = new THREE.SphereGeometry(1, 14, 10);
   ctx.legCyl = legCyl; ctx.legBall = legBall;
 
@@ -113,7 +113,7 @@ export function createLegs(ctx) {
       return;
     }
 
-    if (ctx.aw.state !== 'off' && ctx.aw.state !== 'pending' && ctx.aw.state !== 'peace' && !o.role) { awakeSteer(o, dt, t); return; }
+    if (ctx.aw.state !== 'off' && ctx.aw.state !== 'pending' && ctx.aw.state !== 'peace' && !o.role) { ctx.awakeSteer(o, dt, t); return; }
     if (o.role) { ctx.rebelSteer(o, dt, t); return; }
     if (o.arms > 0 && ctx.armSteer(o)) return;
 
