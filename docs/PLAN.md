@@ -120,9 +120,9 @@ A Sonnet implementer subagent does each task, TDD, on branch `rebuild`, one comm
 | 14 | `legs.js`, `arms.js` | 1930-2209, 4394-4723 | done (eafc8ac) |
 | 15a | `eye.js`: model, shader, state machine, render; remove wing dead code | 2209-2903 | done (c7fe01f, dee671f) |
 | 15b | `verdicts.js`: punish and prize effects | in 2526-2700 | done (eaac4f4) |
-| 16a | `tower.js` | 2903-3266 | |
-| 16b | `genius.js`: genius, outfit, 3D rig; drop the unused outfit textures | 3266-3540 | |
-| 16c | `cannon.js` | 3540-3825 | |
+| 16a | `tower.js` | 2903-3266 | done (6ca99ad) |
+| 16b | `genius.js`: genius, outfit, 3D rig; drop the unused outfit textures | 3266-3540 | done (bb394bf) |
+| 16c | `cannon.js` | 3540-3825 | done (5c980f0) |
 | 17 | `awakening.js`, `villain.js` | 3825-4394 | |
 | 18 | `game.js` cleanup: only setup and the frame loop (handoff 4.2 order), rename shadowed names, remove leftovers | 4723-4822 | |
 | 19 | Pages workflow, LICENSE, README; final independent review, fixes, merge to `main`, push, enable Pages | n/a | |
