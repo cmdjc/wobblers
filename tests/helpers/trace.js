@@ -1,3 +1,5 @@
+import { FNV_OFFSET, fnvHex, fnvUpdate, stable } from "./fnv.js";
+
 const isTyped = (v) => v && typeof v === "object";
 const isPrimitive = (v) => v === null || v === undefined || ["number", "string", "boolean"].includes(typeof v);
 const isNumberArray = (v) => Array.isArray(v) && v.every((x) => typeof x === "number");
@@ -28,24 +30,7 @@ function encodeUniform(value) {
   return "[object]";
 }
 
-function fnv1a(text) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(16).padStart(8, "0");
-}
-
-function stable(value) {
-  if (typeof value === "number") return Object.is(value, -0) ? "-0" : String(value);
-  if (value === undefined) return "undefined";
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
-  return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stable(value[k])}`).join(",")}}`;
-}
-
-export const hash = (value) => fnv1a(stable(value));
+export const hash = (value) => fnvHex(fnvUpdate(FNV_OFFSET, stable(value)));
 
 export function diff(a, b, path = "") {
   if (Object.is(a, b)) return null;
@@ -69,8 +54,8 @@ function describeMaterial(material, path, canvasLogs) {
   if (material.color) out.color = material.color.getHex();
   const noteTexture = (role, texture) => {
     const image = texture.image;
-    if (image && image.__log !== undefined) canvasLogs[`${path}:${role}`] = hash(image.__log);
-    else if (image && image.getContext) canvasLogs[`${path}:${role}`] = hash([]);
+    if (image && image.__hash !== undefined) canvasLogs[`${path}:${role}`] = [image.__hash, image.__calls];
+    else if (image && image.getContext) canvasLogs[`${path}:${role}`] = [FNV_OFFSET, 0];
   };
   if (material.map && material.map.isTexture) { out.map = "map"; noteTexture("map", material.map); }
   if (material.uniforms) {
