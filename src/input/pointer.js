@@ -6,6 +6,7 @@ export function createPointer(ctx) {
 
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
+  ctx.ray = ray;
   const sph = new THREE.Sphere(new THREE.Vector3(), 1);
   const tmpP = new THREE.Vector3();
   const pointers = new Map();
