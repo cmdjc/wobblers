@@ -115,8 +115,8 @@ A Sonnet implementer subagent does each task, TDD, on branch `rebuild`, one comm
 | 9 | `physics.js`, `blocks.js` | 637-851 | done (1104fa7) |
 | 10 | `fx.js` (rings, `blast`, `spark` 2213-2240, `flash` 2313, `textTex`/`popText` 3278-3302, `bubble` 3840-3860), `background.js`, `hud.js` | 170-238, 851-882 + listed | done (b6cad5a) |
 | 11 | `pointer.js`, `toolbar.js` | 882-1110 | done (ab433b3) |
-| 12 | `editor.js`, `fluidPanel.js` | 1110-1316, 1860-1930 | |
-| 13 | `fluid/render.js`, `fluid/coupling.js` | 1606-1860 | |
+| 12 | `editor.js`, `fluidPanel.js` | 1110-1316, 1860-1930 | done (d680816) |
+| 13 | `fluid/render.js`, `fluid/coupling.js` | 1606-1860 | done (684459a) |
 | 14 | `legs.js`, `arms.js` | 1930-2209, 4394-4723 | |
 | 15a | `eye.js`: model, shader, state machine, render; remove wing dead code | 2209-2903 | |
 | 15b | `verdicts.js`: punish and prize effects | in 2526-2700 | |
