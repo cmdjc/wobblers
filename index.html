@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Wobblers</title>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="say" aria-live="polite"></div>
+<button id="snd">Sound on</button>
+<button id="eyebtn">Summon eye</button>
+<div id="flash"></div>
+<div id="awvig"></div>
+<div id="bosshp" hidden><div id="bosshpfill"></div></div>
+<div id="resolvehp" hidden><div id="resolvefill"></div></div>
+<div id="vilpanel" hidden><button id="vil-free">Free them</button></div>
+<div id="awpanel" hidden>
+  <div id="awtrust"><div id="awtrustfill"></div></div>
+  <div class="row2"><button id="aw-sorry">Apologize</button><button id="aw-gift">Offer a gift</button><button id="aw-free" hidden>Set them free</button></div>
+</div>
+<div id="eyehp" hidden><div id="eyehpfill"></div></div>
+<button id="charge" hidden>Charge!</button>
+<div id="bar">
+  <div class="row tools">
+    <button data-tool="play" class="on">Play</button>
+    <button data-tool="grow">Grow</button>
+    <button data-tool="shrink">Shrink</button>
+    <button data-tool="wobble">Wobbly</button>
+    <button data-tool="remove">Remove</button>
+  </div>
+  <div class="row">
+    <button id="grav">Gravity: down</button>
+    <button id="add">Add</button>
+    <button id="fluid">Fluid</button>
+    <button id="clr">Clear all</button>
+  </div>
+</div>
+
+<div id="editor" hidden>
+  <div class="ed-head"><span>Edit shape</span><button id="ed-done">Done</button></div>
+  <div class="ed-scroll">
+    <div class="ed-sec">Shape</div>
+    <div id="ed-shapes" class="chips"></div>
+    <div id="ed-body"></div>
+    <div class="ed-actions">
+      <button id="ed-dup">Duplicate</button>
+      <button id="ed-reset">Reset</button>
+      <button id="ed-del" class="danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="fluidpanel" hidden>
+  <div class="ed-head"><span>Fluid</span><button id="fl-done">Done</button></div>
+  <div class="ed-scroll">
+    <div class="ed-sec">Type</div>
+    <div id="fl-presets" class="chips"></div>
+    <div class="ed-actions">
+      <button id="fl-fill">Fill</button>
+      <button id="fl-drain" class="danger">Drain</button>
+    </div>
+    <div id="fl-body"></div>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

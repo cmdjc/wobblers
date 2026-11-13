@@ -1,13 +1,29 @@
 {
   "name": "wobblers",
-  "version": "0.1.0",
   "private": true,
-  "description": "Wobblers: a surreal, phone-first 3D toy/story game of jiggly shapes. See handoff.md.",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
-    "test": "node tests/smoke.cjs",
-    "serve": "python3 -m http.server 8080 --directory reference"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "check": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "three": "0.128.0"
   },
   "devDependencies": {
-    "three": "0.128.0"
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "jsdom": "30.1.3",
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
   }
 }
