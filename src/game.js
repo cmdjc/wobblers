@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { createContext } from "./context.js";
 import { createAudio } from "./audio/audio.js";
-import { BG_VS, BG_FS, VS, FS, BLOB_VS, BLOB_FS, FLUID_VS, FLUID_FS, SPARK_VS, SPARK_FS, EYE_FS } from "./gfx/shaders.js";
+import { VS, FS, BLOB_VS, BLOB_FS, FLUID_VS, FLUID_FS, EYE_FS } from "./gfx/shaders.js";
 import { createTextures } from "./gfx/textures.js";
+import { CAM_Z, TAN, createBackground } from "./gfx/background.js";
+import { createFx } from "./gfx/fx.js";
+import { createHud } from "./ui/hud.js";
 import { chainBeta, dirichlet, jointLimit, solveChain } from "./limbs/chain.js";
 import { createFluid } from "./fluid/solver.js";
 import { AUTO_SHAPES, GEAR, SHAPES, createShapes } from "./shapes/shapes.js";
@@ -16,20 +19,19 @@ export function createGame({ renderer, env }) {
   const { window, document, performance, navigator, setTimeout, clearTimeout, requestAnimationFrame } = env;
   const ctx = createContext();
   Object.assign(ctx, {
-    resize,
-    addRing, blast, setRay, pickObj, release, say, hideHint, maxSizeFor,
+    setRay, pickObj, release, maxSizeFor,
     applyTool, fieldValue, showField, syncEditor, applyField, fitRoom, setShape, updatePinTarget, openEditor, closeEditor,
     applyFluidLook, fluidInit, buildObstacles, wetness, coupleObjects, gearFluid, fluidFrame, renderFluidField, stirFluid, showFl, refreshSheet,
     openFluidPanel, closeFluidPanel, setAmount, chainPts, defaultBeh, footR, hipXZ, clearLegs,
-    buildLegs, setLegs, startFall, legBrain, orientLegged, stick, updateLegs, updateSparkPx, spark, updateSparks, makeRibbon, setRibbon,
-    flash, buildEye, summonEye, releaseVictim, dismissEye, dirFromEye, startStone, endStone, meltAway,
+    buildLegs, setLegs, startFall, legBrain, orientLegged, stick, updateLegs, makeRibbon, setRibbon,
+    buildEye, summonEye, releaseVictim, dismissEye, dirFromEye, startStone, endStone, meltAway,
     popAway, applyPunish, giftShapes, startHug, applyPrize, gearJam, gearOverclock, divineStatus, pickVictim, eyeFinish, eyeFrame, countLegged,
     countRebels, dropCarry, refreshRoles, setHud, makePieceMesh, disposeMesh, planTower, buildPiece, dismantleTower, abortRebellion, startBuild,
     startCelebration, defeatEye, beginBattle, chargeNow, lowestY, updateLevel, hopTo, climbStep, rebelSteer, advanceTower, rebelFrame,
-    popText, updatePopTexts, outfitTextures, stickBetween, buildRig, makeOutfit, clearOutfit, releaseCarry, updateOutfit,
+    outfitTextures, stickBetween, buildRig, makeOutfit, clearOutfit, releaseCarry, updateOutfit,
     sketchPath, startIdea, sketchTick, lightbulb, mutter, geniusAI, spawnGenius, retireGenius, cylX, planCannon, buildCannonPart, cannonPop,
     startCannon, cannonBuilder, cannonBuildFrame, ballistic, aimAt, aimAngle, ammoCandidates, endAmmo, releaseAmmo, disposeCannon, loaderAI,
-    spawnIron, fireCannon, cannonFrame, pointerActive, bubble, updateBubbles, speaker, lullaby, startAwakening, beginNotice, stealButton,
+    spawnIron, fireCannon, cannonFrame, pointerActive, speaker, lullaby, startAwakening, beginNotice, stealButton,
     awPillHit, beginWary, awAggress, awSlip, awakeSteer, trackFinger, hurtBoss, startBoss, bossFrame, bossDefeat, peaceEnding, abortAwakening,
     awakeFrame, hitThem, awBlastHurt, awSmash, planCell, dismantleCell, startVillain, rattle, rattleMove, commandZap, villainTap, escapeCell,
     villainFrame, defaultAbeh, clearArms, buildArms, setArms, holdPos, armFor, armReach, armSetMode, armCancel, armCalm, armItemOk, armPickItem,
@@ -46,9 +48,7 @@ export function createGame({ renderer, env }) {
   ctx.scene = scene;
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
   ctx.camera = camera;
-  const CAM_Z = 10;
   camera.position.set(0, 0, CAM_Z);
-  const TAN = Math.tan(THREE.MathUtils.degToRad(25));
   const timeU = { value: 0 };
   ctx.timeU = timeU;
 
@@ -58,56 +58,7 @@ export function createGame({ renderer, env }) {
   ctx.tmpG = tmpG; ctx.tmpV = tmpV; ctx.tmpV2 = tmpV2; ctx.qInv = qInv;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  /* ---------- background: slow contour swirl ---------- */
-  const bg = new THREE.Mesh(
-    new THREE.SphereGeometry(80, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false,
-      uniforms: { uTime: timeU },
-      vertexShader: BG_VS,
-      fragmentShader: BG_FS
-    })
-  );
-  scene.add(bg);
-
-  /* ---------- room edges ---------- */
-  const box = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
-    new THREE.LineBasicMaterial({ color: 0xffd1f0, transparent: true, opacity: 0.35 })
-  );
-  ctx.box = box;
-  scene.add(box);
-
-  /* ---------- drifting motes ---------- */
-  const MOTES = 140;
-  const moteArr = new Float32Array(MOTES * 3);
-  ctx.moteArr = moteArr;
-  for (let i = 0; i < MOTES; i++) {
-    moteArr[i*3] = (Math.random()-0.5)*8; moteArr[i*3+1] = (Math.random()-0.5)*16; moteArr[i*3+2] = (Math.random()-0.5)*4 - 1;
-  }
-  const moteGeo = new THREE.BufferGeometry();
-  ctx.moteGeo = moteGeo;
-  moteGeo.setAttribute('position', new THREE.BufferAttribute(moteArr, 3));
-  const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ color: 0xffe1a8, size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
-  ctx.motes = motes;
-  scene.add(motes);
-
-  /* ---------- room bounds from camera ---------- */
-  function resize() {
-    ctx.W = window.innerWidth; ctx.H = window.innerHeight;
-    renderer.setSize(ctx.W, ctx.H, false);
-    camera.aspect = ctx.W / ctx.H; camera.updateProjectionMatrix();
-    const d = CAM_Z - ctx.hz;
-    ctx.hy = TAN * d * 0.98; ctx.hx = TAN * d * (ctx.W / ctx.H) * 0.98;
-    const wpp = 2 * ctx.hy / ctx.H;
-    const barH = document.getElementById('bar').offsetHeight || 120;
-    ctx.yMax = ctx.hy; ctx.yMin = -ctx.hy + (barH + 6) * wpp;
-    box.scale.set(ctx.hx * 2, ctx.yMax - ctx.yMin, ctx.hz * 2);
-    box.position.set(0, (ctx.yMax + ctx.yMin) / 2, 0);
-  }
-  window.addEventListener('resize', resize);
-  window.addEventListener('load', resize);
-  resize();
+  const { resize, updateMotes } = createBackground(ctx);
 
   /* ---------- jelly shader ---------- */
   
@@ -119,38 +70,6 @@ export function createGame({ renderer, env }) {
   const { drawEyes } = createEyes(ctx);
   const { objs, addObj, removeObj, applySize } = createObjects(ctx);
   const { impact, gravityAt, step } = createPhysics(ctx);
-
-  /* ---------- shockwave rings ---------- */
-  const rings = [];
-  ctx.rings = rings;
-  const ringGeo = new THREE.RingGeometry(0.9, 1, 48);
-  function addRing(p, color, max) {
-    const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: color || 0xffa6e8, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    m.position.copy(p); m.scale.setScalar(0.2);
-    scene.add(m); rings.push({ m, age: 0, max: max || 3.6 });
-  }
-  function blast(p) {
-    const vil = aw.state === 'villain';
-    addRing(p, vil ? 0xa04bff : undefined, vil ? 5 : undefined);
-    if (vil) flash('#2a0a4a', 0.3);
-    if (aw.state === 'boss') awBlastHurt(p);
-    for (const o of objs) {
-      if (o.dragged || o.pinned) continue;
-      tmpV.copy(o.pos).sub(p);
-      const dist = tmpV.length();
-      if (dist > 3.4) continue;
-      const f = 1 - dist / 3.4;
-      if (dist < 1e-4) tmpV.set(0, 1, 0); else tmpV.multiplyScalar(1 / dist);
-      o.vel.addScaledVector(tmpV, (vil ? 25 : 15) * f / Math.sqrt(o.density));
-      o.vel.y += 3 * f;
-      o.ang.x += (Math.random() - 0.5) * 8 * f; o.ang.y += (Math.random() - 0.5) * 8 * f;
-      impact(o, tmpV, 10 * f + 2);
-      o.moodT = 1.1;
-    }
-    boing(150, 0.1);
-    fluid.blast(p.x, p.y, 3.2, 9);
-    if (navigator.vibrate) navigator.vibrate(18);
-  }
 
   /* ---------- pointer input ---------- */
   const ray = new THREE.Raycaster();
@@ -279,17 +198,7 @@ export function createGame({ renderer, env }) {
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   /* ---------- UI ---------- */
-  const sayEl = document.getElementById('say');
-  ctx.sayEl = sayEl;
-  function say(text, ms) {
-    sayEl.textContent = text; sayEl.classList.add('on');
-    clearTimeout(ctx.sayTimer);
-    ctx.sayTimer = setTimeout(() => sayEl.classList.remove('on'), ms || 1400);
-  }
-  function hideHint() {
-    if (ctx.hintDone) return;
-    ctx.hintDone = true; clearTimeout(ctx.sayTimer); sayEl.classList.remove('on');
-  }
+  const { say, hideHint } = createHud(ctx);
   const GN = ['down', 'up', 'drifting', 'pulled to the middle', 'spinning'];
   const gravBtn = document.getElementById('grav');
   ctx.gravBtn = gravBtn;
@@ -1147,55 +1056,8 @@ export function createGame({ renderer, env }) {
   }
 
   /* ---------- the Eye: a divine floating eye with feathered wings ---------- */
-  const SP_N = 280;
-  const spPos = new Float32Array(SP_N * 3), spCol = new Float32Array(SP_N * 3), spAlpha = new Float32Array(SP_N), spSize = new Float32Array(SP_N);
-  ctx.spPos = spPos; ctx.spCol = spCol; ctx.spAlpha = spAlpha; ctx.spSize = spSize;
-  const spVel = new Float32Array(SP_N * 3), spAge = new Float32Array(SP_N).fill(99), spMax = new Float32Array(SP_N).fill(1), spGrav = new Float32Array(SP_N);
-  ctx.spVel = spVel; ctx.spAge = spAge; ctx.spMax = spMax; ctx.spGrav = spGrav;
-  const spGeo = new THREE.BufferGeometry();
-  ctx.spGeo = spGeo;
-  spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
-  spGeo.setAttribute('aColor', new THREE.BufferAttribute(spCol, 3));
-  spGeo.setAttribute('aAlpha', new THREE.BufferAttribute(spAlpha, 1));
-  spGeo.setAttribute('aSize', new THREE.BufferAttribute(spSize, 1));
-  const spMat = new THREE.ShaderMaterial({
-    uniforms: { uPx: { value: 200 } },
-    vertexShader: SPARK_VS,
-    fragmentShader: SPARK_FS,
-    blending: THREE.AdditiveBlending, transparent: true, depthTest: false, depthWrite: false
-  });
-  ctx.spMat = spMat;
-  const spPts = new THREE.Points(spGeo, spMat);
-  spPts.frustumCulled = false; spPts.renderOrder = 6; scene.add(spPts);
-  function updateSparkPx() { spMat.uniforms.uPx.value = window.innerHeight * Math.min(window.devicePixelRatio || 1, 2) / (2 * TAN * CAM_Z); }
-  window.addEventListener('resize', updateSparkPx); window.addEventListener('load', updateSparkPx); updateSparkPx();
+  const { rings, addRing, updateRings, blast, updateSparkPx, spark, updateSparks, flash, popText, updatePopTexts, bubble, updateBubbles, bubbles } = createFx(ctx);
   const spC = new THREE.Color();
-  ctx.spC = spC;
-  function spark(x, y, z, n, o) {
-    o = o || {};
-    for (let k = 0; k < n; k++) {
-      const i = ctx.spHead; ctx.spHead = (ctx.spHead + 1) % SP_N;
-      const a = Math.random() * 6.2832, sp = (o.speed || 1.5) * (0.4 + Math.random() * 0.8), sr = o.spread || 0;
-      spPos[3 * i] = x + (Math.random() - 0.5) * sr; spPos[3 * i + 1] = y + (Math.random() - 0.5) * sr; spPos[3 * i + 2] = z;
-      spVel[3 * i] = Math.cos(a) * sp; spVel[3 * i + 1] = Math.sin(a) * sp + (o.up || 0);
-      spC.setHex(o.color !== undefined ? o.color : 0xffd25a);
-      spCol[3 * i] = spC.r; spCol[3 * i + 1] = spC.g; spCol[3 * i + 2] = spC.b;
-      spAge[i] = 0; spMax[i] = (o.life || 1) * (0.6 + Math.random() * 0.7);
-      spSize[i] = (o.size || 0.12) * (0.6 + Math.random() * 0.8);
-      spGrav[i] = o.grav !== undefined ? o.grav : -2;
-    }
-  }
-  function updateSparks(dt) {
-    for (let i = 0; i < SP_N; i++) {
-      if (spAge[i] >= spMax[i]) { spAlpha[i] = 0; continue; }
-      spAge[i] += dt;
-      spPos[3 * i] += spVel[3 * i] * dt; spPos[3 * i + 1] += spVel[3 * i + 1] * dt; spVel[3 * i + 1] += spGrav[i] * dt;
-      const k = spAge[i] / spMax[i];
-      spAlpha[i] = k >= 1 ? 0 : Math.min(1, k * 8) * (1 - k);
-    }
-    spGeo.attributes.position.needsUpdate = true; spGeo.attributes.aAlpha.needsUpdate = true;
-    spGeo.attributes.aColor.needsUpdate = true; spGeo.attributes.aSize.needsUpdate = true;
-  }
 
   // light ribbons: jagged for lightning, straight and soft for beams
   function makeRibbon(segs, color) {
@@ -1225,11 +1087,6 @@ export function createGame({ renderer, env }) {
   ctx.omenRing = omenRing;
   omenRing.visible = false; omenRing.renderOrder = 5; scene.add(omenRing);
 
-  const flashEl = document.getElementById('flash');
-  function flash(color, a) {
-    flashEl.style.transition = 'none'; flashEl.style.background = color; flashEl.style.opacity = String(a);
-    setTimeout(() => { flashEl.style.transition = 'opacity .45s'; flashEl.style.opacity = '0'; }, 40);
-  }
 
   // the eye itself
   const ey = {
@@ -2105,24 +1962,6 @@ export function createGame({ renderer, env }) {
   }
 
   /* ---------- the genius wobbler and the cannon uprising ---------- */
-  // floating comic text
-  const popTexts = [];
-  ctx.popTexts = popTexts;
-  function popText(x, y, txt, color, life, size) {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTex(txt, color || '#ffffff'), transparent: true, depthTest: false, depthWrite: false, opacity: 0 }));
-    const w = size || 1.0;
-    sp.position.set(x, y, 1.6); sp.scale.set(w * 2.2, w * 0.82, 1); sp.renderOrder = 7;
-    scene.add(sp);
-    popTexts.push({ sp, age: 0, life: life || 1.6, vy: 0.5 + Math.random() * 0.3 });
-  }
-  function updatePopTexts(dt) {
-    for (let i = popTexts.length - 1; i >= 0; i--) {
-      const p = popTexts[i];
-      p.age += dt; p.sp.position.y += p.vy * dt;
-      p.sp.material.opacity = Math.min(1, p.age * 6) * Math.max(0, 1 - p.age / p.life);
-      if (p.age >= p.life) { scene.remove(p.sp); p.sp.material.dispose(); popTexts.splice(i, 1); }
-    }
-  }
 
   function outfitTextures() {
     if (ctx.outfitTex) return ctx.outfitTex;
@@ -2653,24 +2492,6 @@ export function createGame({ renderer, env }) {
   const pick = arr => arr[(Math.random() * arr.length) | 0];
   function pointerActive() { return pointers.size > 0 || (ctx.clockNow - ctx.pointerT) < 1.5; }
 
-  // speech bubbles
-  const bubbles = [];
-  ctx.bubbles = bubbles;
-  function bubble(o, text, life) {
-    if (!o || bubbles.length > 6) return;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex(text), transparent: true, depthTest: false, depthWrite: false, opacity: 0 }));
-    sp.scale.set(1.9, 0.84, 1); sp.renderOrder = 7; scene.add(sp);
-    bubbles.push({ sp, o, age: 0, life: life || 2.6 });
-  }
-  function updateBubbles(dt) {
-    for (let i = bubbles.length - 1; i >= 0; i--) {
-      const b = bubbles[i];
-      b.age += dt;
-      if (b.age >= b.life || objs.indexOf(b.o) < 0) { scene.remove(b.sp); b.sp.material.dispose(); bubbles.splice(i, 1); continue; }
-      b.sp.position.set(b.o.pos.x, b.o.pos.y + b.o.size * 0.55 + 0.7 + b.age * 0.08, 1.7);
-      b.sp.material.opacity = Math.min(1, b.age * 5) * Math.min(1, (b.life - b.age) * 3);
-    }
-  }
   function speaker() {
     const c = objs.filter(o => !o.dying && !o.genius);
     const l = c.filter(o => o.legs > 0);
@@ -3591,21 +3412,9 @@ export function createGame({ renderer, env }) {
       o.eyes.s.material.rotation = clamp(-o.vel.x * 0.03, -0.5, 0.5);
     }
 
-    for (let i = rings.length - 1; i >= 0; i--) {
-      const r = rings[i];
-      r.age += dt;
-      const k = r.age / 0.55;
-      if (k >= 1) { scene.remove(r.m); r.m.material.dispose(); rings.splice(i, 1); continue; }
-      r.m.scale.setScalar(0.2 + k * (r.max - 0.2));
-      r.m.material.opacity = 0.9 * (1 - k);
-    }
+    updateRings(dt);
 
-    for (let i = 0; i < MOTES; i++) {
-      moteArr[i * 3 + 1] += dt * 0.25;
-      moteArr[i * 3] += Math.sin(ctx.time * 0.4 + i) * dt * 0.05;
-      if (moteArr[i * 3 + 1] > 8) moteArr[i * 3 + 1] = -8;
-    }
-    moteGeo.attributes.position.needsUpdate = true;
+    updateMotes(dt);
 
     renderFluidField();
 
