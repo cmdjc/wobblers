@@ -118,8 +118,8 @@ A Sonnet implementer subagent does each task, TDD, on branch `rebuild`, one comm
 | 12 | `editor.js`, `fluidPanel.js` | 1110-1316, 1860-1930 | done (d680816) |
 | 13 | `fluid/render.js`, `fluid/coupling.js` | 1606-1860 | done (684459a) |
 | 14 | `legs.js`, `arms.js` | 1930-2209, 4394-4723 | done (eafc8ac) |
-| 15a | `eye.js`: model, shader, state machine, render; remove wing dead code | 2209-2903 | |
-| 15b | `verdicts.js`: punish and prize effects | in 2526-2700 | |
+| 15a | `eye.js`: model, shader, state machine, render; remove wing dead code | 2209-2903 | done (c7fe01f, dee671f) |
+| 15b | `verdicts.js`: punish and prize effects | in 2526-2700 | done (eaac4f4) |
 | 16a | `tower.js` | 2903-3266 | |
 | 16b | `genius.js`: genius, outfit, 3D rig; drop the unused outfit textures | 3266-3540 | |
 | 16c | `cannon.js` | 3540-3825 | |
