@@ -111,8 +111,8 @@ A Sonnet implementer subagent does each task, TDD, on branch `rebuild`, one comm
 | 5 | `context.js`: move reassigned closure variables onto `ctx`, register forwarders | 222, 435, 614, 653, 888, 1006, 1060, 1114, 1610, 1812, 1920, 1932, 2213, 2914, 3307, 4733 | done (d31cb44) |
 | 6 | Leaf modules with unit tests: `audio.js` (613-636, 2294-2311, 3267-3277), `shaders.js` (239-294 and the other GLSL), `textures.js` (one canvas-texture helper), `chain.js` (equal segment lengths for n=2..6) | listed | done (6263837) |
 | 7 | `fluid/solver.js` with unit tests (rest density, no NaN, drain, obstacles keep particles out) | 1316-1606 | done (dc4907e) |
-| 8 | `shapes.js`, `colliders.js`, `objects.js`, eyes canvas | 295-612 | |
-| 9 | `physics.js`, `blocks.js` | 637-851 | |
+| 8 | `shapes.js`, `colliders.js`, `objects.js`, eyes canvas | 295-612 | done (1a3826c) |
+| 9 | `physics.js`, `blocks.js` | 637-851 | done (1104fa7) |
 | 10 | `fx.js` (rings, `blast`, `spark` 2213-2240, `flash` 2313, `textTex`/`popText` 3278-3302, `bubble` 3840-3860), `background.js`, `hud.js` | 170-238, 851-882 + listed | |
 | 11 | `pointer.js`, `toolbar.js` | 882-1110 | |
 | 12 | `editor.js`, `fluidPanel.js` | 1110-1316, 1860-1930 | |
