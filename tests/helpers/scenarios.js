@@ -18,9 +18,10 @@ function stepChecked(game, frames) {
   }
 }
 
-function until(game, label, predicate, maxSeconds) {
+function until(game, label, predicate, maxSeconds, each = null) {
   for (let i = 0; i < maxSeconds * fps; i++) {
     if (predicate()) return;
+    if (each) each();
     stepChecked(game, 1);
   }
   expect(predicate(), `${label} within ${maxSeconds} s`).toBe(true);
@@ -448,4 +449,189 @@ export async function eyeScenario(game) {
   click(game, "#clr");
   stepChecked(game, 60);
   if (game.harness.window.AudioContext) expect(startedNodes(game, "bufferSource"), "noise buffers played").toBeGreaterThan(0);
+}
+
+const pressIfReady = (game, selector) => {
+  const el = game.harness.document.querySelector(selector);
+  if (el && !el.hidden && !el.disabled) el.click();
+};
+
+const anyTouchable = (game) => game.debug.objs.find((o) => !o.dying && isPickable(game, o));
+
+function legUp(game, count) {
+  const touchable = touchableFrom(game, new Set());
+  for (let i = 0; i < count; i++) giveLimbs(game, touchable(), [["Legs", 3]]);
+}
+
+function reachUprising(game) {
+  stepChecked(game, 60);
+  legUp(game, 4);
+  click(game, "#eyebtn");
+  until(game, "the wobblers rebel", () => game.debug.reb.state !== "off", 120);
+}
+
+function winAwakening(game) {
+  const { debug } = game;
+  const doc = game.harness.document;
+  until(game, "awakening notices the finger", () => debug.aw.state === "notice", 8);
+  until(game, "awakening turns wary", () => debug.aw.state === "wary", 15);
+  expect(doc.getElementById("eyebtn").hidden, "they steal the summon button").toBe(true);
+  expect(doc.getElementById("awpanel").hidden).toBe(false);
+  expect(debug.aw.pill.visible).toBe(true);
+  const trustBefore = debug.aw.trust;
+  until(game, "apologies and gifts reach peace", () => debug.aw.state === "peace", 120, () => {
+    pressIfReady(game, "#aw-sorry");
+    pressIfReady(game, "#aw-gift");
+  });
+  expect(debug.aw.ending, "apologize path").toBe("apology");
+  expect(debug.aw.trust).toBeGreaterThanOrEqual(1);
+  expect(debug.aw.trust).toBeGreaterThan(trustBefore);
+  expect(doc.getElementById("eyebtn").hidden, "button returns").toBe(false);
+  until(game, "peace settles", () => debug.aw.state === "off", 10);
+  expect(debug.reb.total, "story resets after peace").toBe(0);
+  expect(debug.aw.count).toBe(1);
+}
+
+function afterVictory(game, kind) {
+  const { debug } = game;
+  until(game, "the eye falls", () => debug.ey.state === "defeated", 300, () => pressIfReady(game, "#charge"));
+  expect(debug.reb.kind).toBe(kind);
+  expect(debug.ey.hp).toBe(0);
+  until(game, "celebration", () => debug.reb.state === "celebrate", 10);
+  expect(debug.objs.some((o) => o.role === "celebrate"), "legged shapes celebrate").toBe(true);
+  until(game, "the structure is removed and the awakening begins", () => debug.aw.state === "pending", 15);
+  expect(debug.reb.state).toBe("off");
+  expect(debug.reb.pieces.length).toBe(0);
+  expect(debug.blocks.length, "no solid blocks remain").toBe(0);
+  expect(debug.reb.total).toBe(0);
+  expect(debug.reb.cn).toBeNull();
+  expect(debug.ey.battleMode).toBe(false);
+}
+
+export async function towerScenario(game) {
+  const { debug } = game;
+  reachUprising(game);
+  expect(debug.reb.kind, "no genius, so a tower").toBe("tower");
+  expect(debug.reb.genius).toBeNull();
+  expect(debug.reb.state).toBe("build");
+  expect(debug.reb.plats.length).toBeGreaterThanOrEqual(3);
+  until(game, "tower built", () => debug.reb.state === "built", 150);
+  expect(debug.reb.placed).toBe(debug.reb.need);
+  expect(debug.blocks.length).toBe(debug.reb.need);
+  until(game, "battle begins", () => debug.reb.state === "battle", 20);
+  expect(debug.ey.battleMode).toBe(true);
+  expect(game.harness.document.getElementById("eyehp").hidden).toBe(false);
+  afterVictory(game, "tower");
+  winAwakening(game);
+}
+
+export async function villainScenario(game) {
+  const { debug } = game;
+  const doc = game.harness.document;
+  stepChecked(game, 60);
+  legUp(game, 3);
+  debug.startAwakening();
+  expect(debug.aw.state).toBe("pending");
+  until(game, "wary", () => debug.aw.state === "wary", 25);
+
+  const pill = toClient(game, debug.aw.pill.position);
+  tap(game, pill.x, pill.y);
+  expect(debug.aw.state, "tapping the stolen button starts the boss fight").toBe("boss");
+  expect(doc.getElementById("bosshp").hidden).toBe(false);
+  expect(debug.reb.cn, "the cannon aims at you").not.toBeNull();
+
+  until(game, "their resolve breaks", () => debug.aw.state === "capture", 90, () => {
+    expect(debug.aw.state, "the finger survives the boss fight").toBe("boss");
+    const target = anyTouchable(game);
+    if (target) tapShape(game, target);
+  });
+  expect(debug.aw.resolve).toBeLessThanOrEqual(0);
+  until(game, "the door slams shut", () => debug.aw.state === "villain", 10);
+
+  const cell = debug.aw.cell;
+  expect(cell.sealed).toBe(true);
+  const prisoners = debug.objs.filter((o) => !o.dying);
+  expect(prisoners.length).toBeGreaterThan(0);
+  expect(prisoners.every((o) => o.caged), "every shape is caged").toBe(true);
+  expect(debug.ey.state).toBe("master");
+  expect(doc.getElementById("vilpanel").hidden).toBe(false);
+
+  stepChecked(game, 30 * 30);
+  expect(debug.aw.state, "the cell holds for 30 s").toBe("villain");
+  for (const o of debug.objs.filter((x) => x.caged && !x.dying)) {
+    expect(o.pos.x, "prisoner inside the cell").toBeGreaterThan(cell.x0 - 0.3);
+    expect(o.pos.x).toBeLessThan(cell.x1 + 0.3);
+    expect(o.pos.y).toBeLessThan(cell.y1 + 0.3);
+  }
+  expect(debug.aw.gray, "they fade").toBeGreaterThan(0.3);
+
+  click(game, "#vil-free");
+  expect(debug.aw.state, "Free them").toBe("peace");
+  expect(debug.aw.ending).toBe("released");
+  expect(debug.objs.some((o) => o.caged), "nobody stays caged").toBe(false);
+  expect(debug.aw.cell).toBeNull();
+  expect(debug.blocks.length).toBe(0);
+  expect(doc.getElementById("vilpanel").hidden).toBe(true);
+  until(game, "peace settles", () => debug.aw.state === "off", 10);
+  expect(debug.reb.total).toBe(0);
+  stepChecked(game, 90);
+}
+
+export async function cannonScenario(game) {
+  const { debug } = game;
+  reachUprising(game);
+  expect(debug.reb.genius, "the genius appeared").not.toBeNull();
+  expect(debug.reb.genius.genius).toBe(true);
+  expect(debug.reb.kind, "a genius means a cannon").toBe("cannon");
+  expect(debug.reb.cn).not.toBeNull();
+  until(game, "the cannon is built", () => debug.reb.state === "built", 150);
+  expect(debug.reb.cn.built).toBe(6);
+  expect(debug.reb.cphase).toBe("build");
+  until(game, "battle begins", () => debug.reb.state === "battle", 20);
+  let fired = false;
+  until(game, "the cannon fires", () => fired, 120, () => { fired = fired || debug.objs.some((o) => o.ammoT > 0); });
+  until(game, "the eye falls", () => debug.ey.state === "defeated", 240);
+  expect(debug.ey.hp).toBe(0);
+  until(game, "celebration", () => debug.reb.state === "celebrate", 10);
+  until(game, "cannon removed and the awakening begins", () => debug.aw.state === "pending", 15);
+  expect(debug.reb.cn).toBeNull();
+  expect(debug.reb.genius, "the genius leaves").toBeNull();
+  expect(debug.reb.total).toBe(0);
+  expect(debug.blocks.length).toBe(0);
+  stepChecked(game, 60);
+}
+
+export async function resetScenario(game) {
+  const { debug } = game;
+  const doc = game.harness.document;
+  stepChecked(game, 60);
+  legUp(game, 4);
+  click(game, "#eyebtn");
+  until(game, "the eye judges once", () => debug.reb.total >= 1, 40);
+  click(game, "#eyebtn");
+  const judged = debug.reb.total;
+  expect(judged).toBeGreaterThanOrEqual(1);
+  debug.startAwakening();
+  winAwakening(game);
+  expect(debug.reb.total, "total resets").toBe(0);
+  expect(debug.aw.state).toBe("off");
+  expect(debug.ey.state, "the eye leaves with the peace").toBe("off");
+
+  click(game, "#eyebtn");
+  until(game, "a second uprising cycle starts", () => debug.reb.state === "build", 120);
+  expect(debug.reb.total).toBeGreaterThanOrEqual(3);
+  stepChecked(game, 90);
+
+  click(game, "#clr");
+  stepChecked(game, 60);
+  expect(debug.objs.length).toBe(0);
+  expect(debug.reb.state, "clear all aborts the uprising").toBe("off");
+  expect(debug.reb.total).toBe(0);
+  expect(debug.reb.pieces.length).toBe(0);
+  expect(debug.reb.cn).toBeNull();
+  expect(debug.blocks.length).toBe(0);
+  expect(debug.aw.state).toBe("off");
+  expect(doc.getElementById("eyehp").hidden).toBe(true);
+  expect(doc.getElementById("charge").hidden).toBe(true);
+  stepChecked(game, 60);
 }

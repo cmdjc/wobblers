@@ -43,4 +43,24 @@ describe("scenario parity, new against legacy", () => {
     const result = await runParity(scenarios.eyeScenario, { seed: 4, audio: true, every: 10 });
     expect(result).toEqual({ ok: true });
   }, 600000);
+
+  it("5 tower uprising to victory, awakening, apologize to peace (seed 7: no genius)", async () => {
+    const result = await runParity(scenarios.towerScenario, { seed: 7, every: 10 });
+    expect(result).toEqual({ ok: true });
+  }, 900000);
+
+  it("6 awakening to boss to villain: cell, 30 s stable, Free them (seed 7)", async () => {
+    const result = await runParity(scenarios.villainScenario, { seed: 7, every: 10 });
+    expect(result).toEqual({ ok: true });
+  }, 900000);
+
+  it("7 cannon uprising with a genius to victory (seed 1: the genius spawns)", async () => {
+    const result = await runParity(scenarios.cannonScenario, { seed: 1, every: 10 });
+    expect(result).toEqual({ ok: true });
+  }, 900000);
+
+  it("8 story reset and a second uprising cycle (seed 7)", async () => {
+    const result = await runParity(scenarios.resetScenario, { seed: 7, every: 10 });
+    expect(result).toEqual({ ok: true });
+  }, 900000);
 });

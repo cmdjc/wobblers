@@ -1,4 +1,5 @@
 import { bootLegacy, bootNew } from "./boot.js";
+import { assertSane } from "./invariants.js";
 import { diff, hash, snapshot } from "./trace.js";
 
 const STOP = Symbol("stop");
@@ -10,6 +11,7 @@ async function runBuild(boot, build, scenario, { seed, audio, every, captureAt =
   let captured = null;
   const observe = () => {
     if (frame % every !== 0 && frame !== captureAt) return;
+    assertSane(game.debug);
     const snap = snapshot(game.debug, game.harness);
     hashes.push([frame, hash(snap)]);
     if (frame === captureAt) {
