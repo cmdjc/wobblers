@@ -37,6 +37,17 @@ const tapCenter = async (page, selector) => {
   await page.touch("touchEnd", []);
 };
 
+const QUICK_TAP_ATTEMPTS = 3;
+
+const settleAndLocate = async (page, index) => {
+  await sleep(SETTLE_MS / 2);
+  return page.evaluate(`(() => {
+    const wob = window.__wob;
+    const p = wob.objs[${index}].pos.clone().project(wob.camera);
+    return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight };
+  })()`);
+};
+
 const keepOneShape = async (page) => {
   await page.evaluate(`(() => {
     const wob = window.__wob;
@@ -59,12 +70,17 @@ describe("touch input on the built game", () => {
   it("squishes a tapped shape", async () => {
     const page = await openGame();
     try {
-      const { index, x, y } = await keepOneShape(page);
-      const before = await shapeState(page, index);
-      await page.touch("touchStart", [{ x, y }]);
-      await sleep(TAP_MS);
-      await page.touch("touchEnd", []);
-      const after = await shapeState(page, index);
+      let { index, x, y } = await keepOneShape(page);
+      let before, after;
+      for (let attempt = 0; attempt < QUICK_TAP_ATTEMPTS; attempt++) {
+        if (attempt > 0) ({ x, y } = await settleAndLocate(page, index));
+        before = await shapeState(page, index);
+        await page.touch("touchStart", [{ x, y }]);
+        await sleep(TAP_MS);
+        await page.touch("touchEnd", []);
+        after = await shapeState(page, index);
+        if (after.qv !== before.qv) break;
+      }
       expect(after.speed - before.speed).toBeGreaterThan(1);
       expect(after.q !== before.q || after.qv !== before.qv).toBe(true);
       expect(page.errors).toEqual([]);

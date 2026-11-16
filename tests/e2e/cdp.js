@@ -160,7 +160,7 @@ async function createPage(port, url, { before } = {}) {
   return page;
 }
 
-export async function connectBrowser(port = 9222) {
+export async function connectBrowser(port = 9233) {
   const versionUrl = `http://localhost:${port}/json/version`;
   let child = null;
   try {
