@@ -12,8 +12,8 @@ const SEED = 20260513;
 const FRAME_MS = 1000 / 30;
 const STEP_CHUNK = 30;
 const GRID = 8;
-const MEAN_LIMIT = 10;
-const CELL_LIMIT = 40;
+const MEAN_LIMIT = 2;
+const CELL_LIMIT = 8;
 
 const CASES = {
   boot: { frames: 60, actions: [] },

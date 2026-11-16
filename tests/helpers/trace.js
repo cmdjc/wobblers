@@ -15,6 +15,7 @@ function plainFields(obj, depth) {
     if (isPrimitive(value)) out[key] = value === undefined ? "undefined" : value;
     else if (vectorLike(value)) out[key] = value.toArray();
     else if (isNumberArray(value)) out[key] = value.slice();
+    else if (ArrayBuffer.isView(value)) out[key] = Array.from(value);
     else if (depth > 0 && isPlainObject(value)) out[key] = plainFields(value, depth - 1);
   }
   return out;
@@ -85,6 +86,8 @@ function describeNode(node, path, canvasLogs) {
   }
   if (node.geometry) {
     out.geometry = { type: node.geometry.type, count: node.geometry.attributes.position?.count ?? null, drawRange: [node.geometry.drawRange.start, node.geometry.drawRange.count] };
+    const changed = Object.keys(node.geometry.attributes).sort().filter((name) => node.geometry.attributes[name].version > 0);
+    if (changed.length) out.geometry.buffers = Object.fromEntries(changed.map((name) => [name, hash(Array.from(node.geometry.attributes[name].array))]));
   }
   out.children = node.children.map((child, i) => describeNode(child, `${path}/${i}`, canvasLogs));
   return out;
@@ -110,6 +113,10 @@ export function snapshot(debug, harness) {
   const renderer = harness.renderer;
   const calls = renderer.calls.slice(harness.traceCursor).map((c) => [c.name, ...c.args.filter((a) => typeof a === "number")]);
   harness.traceCursor = renderer.calls.length;
+  const audio = harness.audioLog.slice(harness.audioCursor ?? 0);
+  harness.audioCursor = harness.audioLog.length;
+  const vibrate = harness.vibrateCalls.slice(harness.vibrateCursor ?? 0);
+  harness.vibrateCursor = harness.vibrateCalls.length;
   return {
     shapes: debug.objs.map((o) => plainFields(o, 1)),
     ey: without(plainFields(debug.ey, 1), REMOVED_DEAD_FIELDS.ey),
@@ -122,6 +129,8 @@ export function snapshot(debug, harness) {
     dom: describeDom(harness.document),
     canvasLogs,
     renderer: calls,
+    audio,
+    vibrate,
     helpers: Object.fromEntries(["gMode", "tool", "time", "clockNow", "nextShape", "uid", "W", "H", "hx", "hy", "hz", "yMin", "yMax"].map((k) => [k, debug[k]])),
   };
 }
