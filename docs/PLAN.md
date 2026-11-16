@@ -145,3 +145,15 @@ Each extraction task (5-18): write the unit tests for the new module first and s
 ## Plan review
 
 An independent Plan agent reviewed this plan on 2026-11-13 and found 3 blockers, 6 important, and 6 minor issues. This version includes all of them: injected globals, the canvas rect and window size, the `load` timing, the live `ey.flap`, per-canvas logs, the radial gradient stub, no three ids in the trace, the fake-audio scenario, the corrected line ranges, and the task splits.
+
+## Final review
+
+An independent reviewer read `main` at 49e8a16 on 2026-11-15. It found no BLOCKER, 3 IMPORTANT, and 8 MINOR findings. It confirmed that every `ctx` read has a writer, that no module uses real browser globals, and that the code on unexercised paths matches the legacy lines.
+
+- The parity trace now compares sounds, vibrations, changed geometry buffers, and typed arrays on shapes (f9be28d). Sanity tests prove that each one fails parity when it changes.
+- The fluid iteration timing has a unit test in `tests/unit/fluid/coupling.test.js`. Parity cannot reach it, because the fake clock does not advance inside a frame.
+- The screenshot limits are now mean 2 and cell 8. All three cases measure 0.
+- ESLint ignores `.claude/`, and git ignores `coverage/` and log files (283d7c6).
+- Not changed: module-level scratch vectors (they hold no state between calls), unused `ctx` registrations, tag-pinned actions, and `cancel-in-progress` in the Pages workflow, which matches the sister project.
+
+After the review, the owner asked for a Credits panel (5a6d128). E2E tests now start their own Brave on port 9233, because a Brave shared with other projects slowed touch input (dfb22a4). `npm run check` passes with 422 tests, and `npm run e2e` passes with 12.
