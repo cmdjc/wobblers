@@ -22,6 +22,27 @@ afterAll(async () => {
 });
 
 describe("boot of the built game", () => {
+  it("opens the credits naming the creator and Claude, and closes them", async () => {
+    const page = await browser.openPage(`${server.url}/?debug`);
+    try {
+      await page.waitFor("!!window.__wob");
+      expect(await page.evaluate('document.getElementById("credits").hidden')).toBe(true);
+      await page.click("#info");
+      await page.waitFor('!document.getElementById("credits").hidden');
+      const text = await page.evaluate('document.getElementById("credits").innerText');
+      expect(text).toContain("Created by M K");
+      expect(text).toContain("Claude");
+      expect(await page.evaluate('getComputedStyle(document.getElementById("credits")).display')).not.toBe("none");
+      mkdirSync(OUT, { recursive: true });
+      await page.screenshot(`${OUT}/credits.png`);
+      await page.click("#cr-done");
+      await page.waitFor('document.getElementById("credits").hidden');
+      expect(page.errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
   it("loads clean, draws shapes, and shows the hint", async () => {
     const page = await browser.openPage(`${server.url}/?debug`);
     try {

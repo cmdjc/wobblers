@@ -63,7 +63,7 @@ export function installDeterminism(seed) {
 
   document.addEventListener("DOMContentLoaded", () => {
     const style = document.createElement("style");
-    style.textContent = "*, *::before, *::after { transition: none !important; animation: none !important; }";
+    style.textContent = "*, *::before, *::after { transition: none !important; animation: none !important; } #info { visibility: hidden !important; }";
     document.head.appendChild(style);
   });
 }
