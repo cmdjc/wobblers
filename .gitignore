@@ -2,3 +2,5 @@ node_modules/
 dist/
 tests/e2e/out/
 .claude/
+coverage/
+*.log
